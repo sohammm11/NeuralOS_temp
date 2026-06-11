@@ -79,7 +79,10 @@ export default function Home() {
         const slackToken = localStorage.getItem('neuralos_slack_token')
         const res = await fetch('http://localhost:8000/api/workflow', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': 'nros_swiftmove_demo_key'
+          },
           body: JSON.stringify({
             message: userMessage,
             notion_token: notionToken,
@@ -110,7 +113,10 @@ export default function Home() {
     try {
       const res = await fetch('http://localhost:8000/api/chat/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': 'nros_swiftmove_demo_key'
+        },
         body: JSON.stringify({
           question: userMessage,
           history: messages
@@ -158,7 +164,11 @@ export default function Home() {
   async function fetchInsights() {
     setInsightsLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/api/insights')
+      const res = await fetch('http://localhost:8000/api/insights', {
+        headers: {
+          'X-Api-Key': 'nros_swiftmove_demo_key'
+        }
+      })
       const data = await res.json()
       setInsights(data.insights)
     } catch (err) {
@@ -171,7 +181,10 @@ export default function Home() {
     if (type === 'good') {
       await fetch('http://localhost:8000/api/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': 'nros_swiftmove_demo_key'
+        },
         body: JSON.stringify({
           question: messages[index - 1]?.text || '',
           answer: msg.text,
@@ -192,7 +205,10 @@ export default function Home() {
     if (!correction.trim()) return
     await fetch('http://localhost:8000/api/feedback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': 'nros_swiftmove_demo_key'
+      },
       body: JSON.stringify({
         question: messages[index - 1]?.text || '',
         answer: msg.text,
@@ -215,7 +231,10 @@ export default function Home() {
     try {
       const res = await fetch('http://localhost:8000/api/agent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': 'nros_swiftmove_demo_key'
+        },
         body: JSON.stringify({
           instruction: agentInstruction,
           notion_token: localStorage.getItem('neuralos_notion_token'),
@@ -591,7 +610,10 @@ export default function Home() {
 
                       const res = await fetch('http://localhost:8000/api/sync/notion', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Api-Key': 'nros_swiftmove_demo_key'
+                        },
                         body: JSON.stringify({
                           notion_token: notionToken,
                           gemini_key: geminiKey === 'neuralos_managed'
@@ -709,7 +731,10 @@ export default function Home() {
 
                       const res = await fetch('http://localhost:8000/api/sync/slack', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Api-Key': 'nros_swiftmove_demo_key'
+                        },
                         body: JSON.stringify({
                           slack_token: slackToken,
                           gemini_key: geminiKey === 'neuralos_managed'
@@ -807,7 +832,10 @@ export default function Home() {
                     try {
                       const res = await fetch('http://localhost:8000/api/sync/gmail', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Api-Key': 'nros_swiftmove_demo_key'
+                        },
                         body: JSON.stringify({})
                       })
                       const data = await res.json()

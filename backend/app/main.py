@@ -29,26 +29,27 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s'
 )
 
-def audit_log(action: str, company: str, details: str):
-    logging.info(f"ACTION={action} | COMPANY={company} | DETAILS={details}")
+def audit_log(action: str, details: str):
+    logging.info(f"ACTION={action} | DETAILS={details}")
 
-# Simple API key store — replace with database in production
-API_KEYS = {
-    "swiftmove-demo": "SwiftMove Logistics",
+# Company API keys — move to database in production
+VALID_API_KEYS = {
+    "nros_swiftmove_demo_key": "SwiftMove Logistics",
+    "nros_test_key_12345": "Test Company",
 }
 
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
     if not x_api_key:
         raise HTTPException(
             status_code=401,
-            detail="API key required. Pass X-API-Key header."
+            detail="API key required. Add X-Api-Key header."
         )
-    if x_api_key not in API_KEYS:
+    if x_api_key not in VALID_API_KEYS:
         raise HTTPException(
             status_code=403,
             detail="Invalid API key."
         )
-    return API_KEYS[x_api_key]
+    return VALID_API_KEYS[x_api_key]
 
 def sanitize_input(text: str) -> str:
     # Remove prompt injection attempts
@@ -91,7 +92,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://yourdomain.com"  # Add after deployment
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -114,6 +114,8 @@ class ChatResponse(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    request.question = sanitize_input(request.question)
+    audit_log("CHAT", f"question={request.question[:50]}")
     try:
         result = query_rag(request.question, request.history)
         return ChatResponse(
@@ -131,6 +133,7 @@ async def chat_stream_endpoint(
     company: str = Depends(verify_api_key)
 ):
     body.question = sanitize_input(body.question)
+    audit_log("CHAT", f"company={company} question={body.question[:50]}")
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
@@ -151,7 +154,7 @@ async def chat_stream_endpoint(
     )
 
 @app.get("/api/insights")
-async def get_insights():
+async def get_insights(company: str = Depends(verify_api_key)):
     insight_queries = [
         {
             "id": "client_risk",
@@ -317,7 +320,10 @@ class SlackSyncRequest(BaseModel):
     pinecone_index: str
 
 @app.post("/api/sync/slack")
-async def sync_slack(request: SlackSyncRequest):
+async def sync_slack(
+    request: SlackSyncRequest,
+    company: str = Depends(verify_api_key)
+):
     try:
         # Use backend keys if managed
         gemini_key = request.gemini_key
@@ -545,7 +551,10 @@ class FeedbackRequest(BaseModel):
     correction: str = None
 
 @app.post("/api/feedback")
-async def submit_feedback(request: FeedbackRequest):
+async def submit_feedback(
+    request: FeedbackRequest,
+    company: str = Depends(verify_api_key)
+):
     try:
         if request.feedback_type == "good":
             add_good_answer(request.question, request.answer)
@@ -570,20 +579,22 @@ class AgentRequest(BaseModel):
     slack_token: str = None
 
 @app.post("/api/agent")
+@limiter.limit("10/minute")
 async def run_agent(
-    request: AgentRequest,
+    request: Request,
+    body: AgentRequest,
     company: str = Depends(verify_api_key)
 ):
-    audit_log("AGENT_RUN", company, request.instruction)
+    audit_log("AGENT", f"company={company} instruction={body.instruction[:50]}")
     async def generate():
         try:
             async for chunk in execute_agent(
-                instruction=request.instruction,
+                instruction=body.instruction,
                 llm=llm,
                 embeddings=embeddings,
                 index=index,
-                notion_token=request.notion_token,
-                slack_token=request.slack_token
+                notion_token=body.notion_token,
+                slack_token=body.slack_token
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:

@@ -1,0 +1,6 @@
+2026-06-12 01:21:13,428 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 01:21:13,431 - Querying index with top_k=4
+2026-06-12 01:21:14,426 - AFC is enabled with max remote calls: 10.
+2026-06-12 01:21:16,381 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 503 Service Unavailable"
+2026-06-12 01:21:16,383 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.35 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-06-12 01:21:19,325 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
