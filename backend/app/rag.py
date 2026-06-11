@@ -2,6 +2,8 @@ import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from pinecone import Pinecone
 import app.config as config
+from app.graph import query_graph, graph_enabled
+from app.feedback import get_relevant_corrections
 
 # Global variables initialized to None
 embeddings = None
@@ -91,11 +93,27 @@ def query_rag(question: str, history: list = []):
             
         context_text = "\n\n---\n\n".join(context_chunks)
         
+        # Enhance with graph context
+        if graph_enabled:
+            graph_results = query_graph(question)
+            if graph_results and graph_results != ["No specific graph context found."]:
+                graph_context = "\n".join(graph_results)
+                context_text = context_text + "\n\n---\nKnowledge Graph Context:\n" + graph_context
+        
         if not context_text:
             return {
                 "answer": "I couldn't find any relevant documents in the knowledge base. Please ingest some content first using scripts/ingest.py.",
                 "sources": []
             }
+            
+        # Check for past corrections
+        corrections = get_relevant_corrections(question)
+        if corrections:
+            correction_text = "\n".join([
+                f"Previous correction: Q: {c['question']} → Correct answer: {c['correction']}"
+                for c in corrections
+            ])
+            context_text = correction_text + "\n\n---\n\n" + context_text
             
         # 4. Construct the prompt for Gemini
         history_text = ""
@@ -212,11 +230,27 @@ async def query_rag_stream(question: str, history: list = []):
                 sources.add(source)
 
         context_text = "\n\n---\n\n".join(context_chunks)
-
+        
+        # Enhance with graph context
+        if graph_enabled:
+            graph_results = query_graph(question)
+            if graph_results and graph_results != ["No specific graph context found."]:
+                graph_context = "\n".join(graph_results)
+                context_text = context_text + "\n\n---\nKnowledge Graph Context:\n" + graph_context
+        
         if not context_text:
             yield {"type": "text", "content": "I couldn't find relevant documents."}
             yield {"type": "sources", "sources": []}
             return
+
+        # Check for past corrections
+        corrections = get_relevant_corrections(question)
+        if corrections:
+            correction_text = "\n".join([
+                f"Previous correction: Q: {c['question']} → Correct answer: {c['correction']}"
+                for c in corrections
+            ])
+            context_text = correction_text + "\n\n---\n\n" + context_text
 
         # 4. Build prompt
         history_text = ""

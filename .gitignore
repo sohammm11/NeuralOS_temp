@@ -16,6 +16,11 @@
 .env.development.local
 .env.test.local
 .env.production.local
+backend/credentials.json
+backend/gmail_token.json
+backend/feedback_store.json
+frontend/.env.local
+*.json.bak
 
 # OS files
 .DS_Store

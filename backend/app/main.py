@@ -1,26 +1,98 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import app.config as config
-from app.rag import query_rag, query_rag_stream
+from app.rag import query_rag, query_rag_stream, llm, embeddings, index
 import json
 import asyncio
 from app.notion_connector import get_notion_pages, chunk_and_prepare
+from app.slack_connector import get_slack_messages, chunk_slack_messages
+from app.graph import seed_swiftmove_graph, get_all_nodes, graph_enabled, init_graph
+from app.workflows import detect_intent, create_notion_task
+from app.gmail_connector import get_gmail_messages, chunk_emails
+from app.feedback import add_correction, add_good_answer, get_feedback_stats
+from app.agent import execute_agent
+import secrets
+import hashlib
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import logging
+from datetime import datetime
 
+# Audit Logging setup
+logging.basicConfig(
+    filename='neuralos_audit.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s'
+)
+
+def audit_log(action: str, company: str, details: str):
+    logging.info(f"ACTION={action} | COMPANY={company} | DETAILS={details}")
+
+# Simple API key store — replace with database in production
+API_KEYS = {
+    "swiftmove-demo": "SwiftMove Logistics",
+}
+
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required. Pass X-API-Key header."
+        )
+    if x_api_key not in API_KEYS:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key."
+        )
+    return API_KEYS[x_api_key]
+
+def sanitize_input(text: str) -> str:
+    # Remove prompt injection attempts
+    dangerous_patterns = [
+        "ignore previous instructions",
+        "ignore all instructions",
+        "you are now",
+        "forget your instructions",
+        "new instructions:",
+        "system prompt:",
+    ]
+    text_lower = text.lower()
+    for pattern in dangerous_patterns:
+        if pattern in text_lower:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input detected."
+            )
+    # Limit input length
+    if len(text) > 2000:
+        raise HTTPException(
+            status_code=400,
+            detail="Input too long. Maximum 2000 characters."
+        )
+    return text.strip()
+
+init_graph()
 config.validate_config()
 
-
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="NeuralOS RAG Backend",
     description="Minimal FastAPI backend to query knowledge database built on Slack + Notion",
     version="1.0"
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://yourdomain.com"  # Add after deployment
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,13 +124,19 @@ async def chat_endpoint(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat/stream")
-async def chat_stream_endpoint(request: ChatRequest):
-    if not request.question.strip():
+@limiter.limit("30/minute")
+async def chat_stream_endpoint(
+    request: Request,
+    body: ChatRequest,
+    company: str = Depends(verify_api_key)
+):
+    body.question = sanitize_input(body.question)
+    if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     async def generate():
         try:
-            async for chunk in query_rag_stream(request.question, request.history):
+            async for chunk in query_rag_stream(body.question, body.history):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -158,7 +236,10 @@ class SyncRequest(BaseModel):
     pinecone_index: str
 
 @app.post("/api/sync/notion")
-async def sync_notion(request: SyncRequest):
+async def sync_notion(
+    request: SyncRequest,
+    company: str = Depends(verify_api_key)
+):
     try:
         # Use backend config keys if managed
         gemini_key = request.gemini_key
@@ -228,6 +309,294 @@ async def sync_notion(request: SyncRequest):
             "success": False,
             "message": str(e)
         }
+
+class SlackSyncRequest(BaseModel):
+    slack_token: str
+    gemini_key: str
+    pinecone_key: str
+    pinecone_index: str
+
+@app.post("/api/sync/slack")
+async def sync_slack(request: SlackSyncRequest):
+    try:
+        # Use backend keys if managed
+        gemini_key = request.gemini_key
+        pinecone_key = request.pinecone_key
+
+        if gemini_key == 'neuralos_managed' or not gemini_key:
+            gemini_key = config.GEMINI_API_KEY
+        if pinecone_key == 'neuralos_managed' or not pinecone_key:
+            pinecone_key = config.PINECONE_API_KEY
+
+        # 1. Fetch Slack messages
+        channels = get_slack_messages(request.slack_token)
+
+        if not channels:
+            return {
+                "success": False,
+                "message": "No channels found. Check your Slack token and bot permissions."
+            }
+
+        # 2. Chunk messages
+        chunks = chunk_slack_messages(channels)
+
+        # 3. Embed and store
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from pinecone import Pinecone
+
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+            google_api_key=gemini_key,
+            output_dimensionality=768
+        )
+
+        pc = Pinecone(api_key=pinecone_key)
+        index = pc.Index(request.pinecone_index)
+
+        # 4. Upsert in batches
+        batch_size = 50
+        total_upserted = 0
+
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            texts = [c["text"] for c in batch]
+            vectors = embeddings.embed_documents(texts)
+
+            upsert_data = []
+            for j, (chunk, vector) in enumerate(zip(batch, vectors)):
+                upsert_data.append({
+                    "id": f"slack_{chunk['channel']}_{chunk['chunk_index']}",
+                    "values": vector,
+                    "metadata": {
+                        "text": chunk["text"],
+                        "source": chunk["source"]
+                    }
+                })
+
+            index.upsert(vectors=upsert_data)
+            total_upserted += len(batch)
+
+        return {
+            "success": True,
+            "message": f"Synced {len(channels)} channels, indexed {total_upserted} chunks.",
+            "channels": [c["channel"] for c in channels]
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+@app.post("/api/graph/seed")
+async def seed_graph():
+    try:
+        result = seed_swiftmove_graph()
+        if result:
+            return {"success": True, "message": "Knowledge graph seeded successfully."}
+        else:
+            return {"success": False, "message": "Failed to seed graph."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/graph/nodes")
+async def get_graph_nodes():
+    try:
+        nodes = get_all_nodes()
+        return {"success": True, "nodes": nodes}
+    except Exception as e:
+        return {"success": False, "nodes": [], "message": str(e)}
+
+class WorkflowRequest(BaseModel):
+    message: str
+    notion_token: str = None
+    slack_token: str = None
+
+@app.post("/api/workflow")
+async def run_workflow(request: WorkflowRequest):
+    try:
+        intent, details = detect_intent(request.message)
+
+        if intent == "CREATE_TASK":
+            if not request.notion_token:
+                return {
+                    "success": False,
+                    "intent": intent,
+                    "message": "Notion token required to create tasks."
+                }
+
+            result = create_notion_task(
+                notion_token=request.notion_token,
+                task_title=details.get("title", request.message),
+                assignee=details.get("assignee"),
+                notes=request.message
+            )
+
+            return {
+                "success": result["success"],
+                "intent": intent,
+                "message": result["message"],
+                "url": result.get("url", "")
+            }
+
+        elif intent == "SEND_SLACK":
+            if not request.slack_token:
+                return {
+                    "success": False,
+                    "intent": intent,
+                    "message": "Slack token required to send messages."
+                }
+
+            from app.workflows import send_slack_message
+            result = send_slack_message(
+                slack_token=request.slack_token,
+                channel=details.get("channel", "general"),
+                message=details.get("message", request.message)
+            )
+
+            return {
+                "success": result["success"],
+                "intent": intent,
+                "message": result["message"]
+            }
+
+        return {
+            "success": False,
+            "intent": "QUESTION",
+            "message": "This looks like a question, not an action."
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "intent": "ERROR",
+            "message": str(e)
+        }
+
+@app.post("/api/sync/gmail")
+async def sync_gmail():
+    try:
+        # 1. Fetch emails
+        emails = get_gmail_messages(max_emails=10)
+
+        if not emails:
+            return {
+                "success": False,
+                "message": "No emails found or authentication failed."
+            }
+
+        # 2. Chunk emails
+        chunks = chunk_emails(emails)
+
+        # 3. Embed and store
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from pinecone import Pinecone
+
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+            google_api_key=config.GEMINI_API_KEY,
+            output_dimensionality=768
+        )
+
+        pc = Pinecone(api_key=config.PINECONE_API_KEY)
+        index = pc.Index(config.PINECONE_INDEX_NAME)
+
+        # 4. Upsert in batches
+        batch_size = 50
+        total_upserted = 0
+
+        for i in range(0, len(chunks), batch_size):
+            import asyncio
+            await asyncio.sleep(3)
+            batch = chunks[i:i + batch_size]
+            texts = [c["text"] for c in batch]
+            vectors = embeddings.embed_documents(texts)
+
+            upsert_data = []
+            for j, (chunk, vector) in enumerate(zip(batch, vectors)):
+                upsert_data.append({
+                    "id": f"gmail_{i}_{j}",
+                    "values": vector,
+                    "metadata": {
+                        "text": chunk["text"],
+                        "source": chunk["source"]
+                    }
+                })
+
+            index.upsert(vectors=upsert_data)
+            total_upserted += len(batch)
+
+        return {
+            "success": True,
+            "message": f"Synced {len(emails)} emails, indexed {total_upserted} chunks.",
+            "count": len(emails)
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+class FeedbackRequest(BaseModel):
+    question: str
+    answer: str
+    feedback_type: str
+    correction: str = None
+
+@app.post("/api/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    try:
+        if request.feedback_type == "good":
+            add_good_answer(request.question, request.answer)
+            return {"success": True, "message": "Thanks for the feedback!"}
+
+        elif request.feedback_type == "bad" and request.correction:
+            add_correction(request.question, request.answer, request.correction)
+            return {"success": True, "message": "Correction saved. NeuralOS will improve."}
+
+        return {"success": False, "message": "Invalid feedback type."}
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/feedback/stats")
+async def feedback_stats():
+    return get_feedback_stats()
+
+class AgentRequest(BaseModel):
+    instruction: str
+    notion_token: str = None
+    slack_token: str = None
+
+@app.post("/api/agent")
+async def run_agent(
+    request: AgentRequest,
+    company: str = Depends(verify_api_key)
+):
+    audit_log("AGENT_RUN", company, request.instruction)
+    async def generate():
+        try:
+            async for chunk in execute_agent(
+                instruction=request.instruction,
+                llm=llm,
+                embeddings=embeddings,
+                index=index,
+                notion_token=request.notion_token,
+                slack_token=request.slack_token
+            ):
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @app.get("/api/health")
 async def health_check():
