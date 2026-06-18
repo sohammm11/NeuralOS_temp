@@ -111,3 +111,21 @@
 2026-06-18 15:04:43,459 - Upserting 12 vectors into namespace 'swiftmove_logistics'
 2026-06-18 15:04:46,812 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
 2026-06-18 15:04:46,970 - Upserting 27 vectors into namespace 'swiftmove_logistics'
+2026-06-18 15:09:23,126 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-06-18 15:09:24,140 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:25,177 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:25,470 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:25,809 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:26,140 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:26,465 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-06-18 15:09:28,051 - Describing index 'neuralos'
+2026-06-18 15:09:29,236 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-06-18 15:09:29,787 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-06-18 15:09:31,315 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-18 15:09:31,345 - Upserting 12 vectors into namespace 'swiftmove_logistics'
+2026-06-18 15:09:32,977 - file_cache is only supported with oauth2client<4.0.0
+2026-06-18 15:09:40,105 - Describing index 'neuralos'
+2026-06-18 15:09:41,295 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-06-18 15:09:41,804 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-06-18 15:09:46,379 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-18 15:09:46,594 - Upserting 27 vectors into namespace 'swiftmove_logistics'
