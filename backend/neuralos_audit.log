@@ -4,3 +4,38 @@
 2026-06-12 01:21:16,381 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 503 Service Unavailable"
 2026-06-12 01:21:16,383 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.35 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
 2026-06-12 01:21:19,325 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 01:34:55,708 - ACTION=CHAT | DETAILS=company=SwiftMove Logistics question=who is the ceo of swiftmove logistic
+2026-06-12 01:34:56,207 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 01:34:56,209 - Querying index with top_k=4
+2026-06-12 01:34:57,129 - AFC is enabled with max remote calls: 10.
+2026-06-12 01:34:58,641 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 17:12:29,484 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 17:12:29,487 - Querying index with top_k=4
+2026-06-12 17:12:30,565 - AFC is enabled with max remote calls: 10.
+2026-06-12 17:12:34,063 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 17:12:39,884 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 17:12:39,887 - Querying index with top_k=4
+2026-06-12 17:12:40,729 - AFC is enabled with max remote calls: 10.
+2026-06-12 17:12:44,196 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 17:12:46,651 - ACTION=AGENT | DETAILS=company=SwiftMove Logistics instruction=Find all overdue action items and create tasks in 
+2026-06-12 17:12:47,180 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 17:12:47,182 - Querying index with top_k=5
+2026-06-12 17:12:48,016 - AFC is enabled with max remote calls: 10.
+2026-06-12 17:12:50,825 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 17:12:50,931 - AFC is enabled with max remote calls: 10.
+2026-06-12 17:12:52,620 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-12 17:12:53,984 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-06-12 17:12:54,569 - HTTP Request: POST https://api.notion.com/v1/pages "HTTP/1.1 200 OK"
+2026-06-12 17:12:55,020 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-12 17:12:55,032 - Querying index with top_k=4
+2026-06-12 17:12:55,958 - AFC is enabled with max remote calls: 10.
+2026-06-12 17:12:59,135 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-13 20:45:46,540 - ACTION=CHAT | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=question=Who is the CEO of SwiftMove?
+2026-06-13 20:45:47,035 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-13 20:45:47,082 - Querying index with top_k=4
+2026-06-13 20:45:48,182 - AFC is enabled with max remote calls: 10.
+2026-06-13 20:45:49,431 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-14 01:31:12,769 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 401 Unauthorized"
+2026-06-14 01:31:12,805 - request fail: code=APIErrorCode.Unauthorized, message=API token is invalid., attempt=0, request_id=f2e26a33-41e4-4a07-bc3a-c54513ab1adb
+2026-06-14 01:33:36,513 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 401 Unauthorized"
+2026-06-14 01:33:36,514 - request fail: code=APIErrorCode.Unauthorized, message=API token is invalid., attempt=0, request_id=072051bc-7911-4513-ad38-8a374f0b091a

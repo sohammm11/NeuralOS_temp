@@ -54,7 +54,7 @@ def init_rag():
 # Try initializing on module load
 rag_enabled = init_rag()
 
-def query_rag(question: str, history: list = []):
+def query_rag(question: str, history: list = [], namespace: str = "default"):
     """
     Search Pinecone vector store, construct the prompt, query Gemini, and return the answer + sources.
     If RAG setup is incomplete, fallback to a clean system response.
@@ -77,7 +77,8 @@ def query_rag(question: str, history: list = []):
         search_response = index.query(
             vector=query_vector,
             top_k=4,
-            include_metadata=True
+            include_metadata=True,
+            namespace=namespace
         )
         
         # 3. Extract sources and document text
@@ -188,7 +189,7 @@ def get_mock_response(question: str):
             "answer": f"API keys are not configured in backend/.env. (Running in local Demo mode).\n\nYou queried: '{question}'. Set your API keys in your .env to connect to Gemini and Pinecone.",
             "sources": ["System Configuration"]
         }
-async def query_rag_stream(question: str, history: list = []):
+async def query_rag_stream(question: str, history: list = [], namespace: str = "default"):
     """
     Streaming version of query_rag.
     Yields chunks as they come from Gemini.
@@ -215,7 +216,8 @@ async def query_rag_stream(question: str, history: list = []):
         search_response = index.query(
             vector=query_vector,
             top_k=4,
-            include_metadata=True
+            include_metadata=True,
+            namespace=namespace
         )
 
         # 3. Extract context

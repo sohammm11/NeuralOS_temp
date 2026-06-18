@@ -10,6 +10,7 @@ PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+MONGODB_URI = os.getenv("MONGODB_URI")
 
 # Basic validation logic (warnings instead of direct crash on startup, to allow container/deployment setup)
 def validate_config():
@@ -18,6 +19,9 @@ def validate_config():
         missing.append("GEMINI_API_KEY")
     if not PINECONE_API_KEY:
         missing.append("PINECONE_API_KEY")
+    if not MONGODB_URI:
+        missing.append("MONGODB_URI")
     if missing:
-        print(f"WARNING: The following environment variables are missing: {', '.join(missing)}")
-        print("Please configure them in your backend/.env file before running requests.")
+        print(f"WARNING: Missing environment variables: {', '.join(missing)}")
+    if GEMINI_API_KEY_BACKUP:
+        print("INFO: Backup Gemini API key loaded successfully.")

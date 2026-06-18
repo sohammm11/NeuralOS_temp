@@ -14,6 +14,7 @@ from app.workflows import detect_intent, create_notion_task
 from app.gmail_connector import get_gmail_messages, chunk_emails
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
+from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history
 import secrets
 import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,6 +23,32 @@ from slowapi.errors import RateLimitExceeded
 import logging
 from datetime import datetime
 
+# Rate limiting
+limiter = Limiter(key_func=get_remote_address)
+
+from fastapi.openapi.models import APIKey
+from fastapi.security import APIKeyHeader
+
+api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
+
+app = FastAPI(
+    title="NeuralOS RAG Backend",
+    description="Minimal FastAPI backend to query knowledge database built on Slack + Notion",
+    version="1.0"
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Audit Logging setup
 logging.basicConfig(
     filename='neuralos_audit.log',
@@ -29,27 +56,38 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s'
 )
 
-def audit_log(action: str, details: str):
-    logging.info(f"ACTION={action} | DETAILS={details}")
+def audit_log(action: str, details: str, company_id: str = "unknown"):
+    logging.info(f"ACTION={action} | COMPANY={company_id} | DETAILS={details}")
+    if db_enabled:
+        log_action(company_id, action, details)
 
-# Company API keys — move to database in production
-VALID_API_KEYS = {
-    "nros_swiftmove_demo_key": "SwiftMove Logistics",
-    "nros_test_key_12345": "Test Company",
-}
-
-def verify_api_key(x_api_key: Optional[str] = Header(None)):
+def verify_api_key(x_api_key: str = Depends(api_key_header)):
     if not x_api_key:
         raise HTTPException(
             status_code=401,
             detail="API key required. Add X-Api-Key header."
         )
-    if x_api_key not in VALID_API_KEYS:
+    company = get_company_by_api_key(x_api_key)
+    if not company:
         raise HTTPException(
             status_code=403,
             detail="Invalid API key."
         )
-    return VALID_API_KEYS[x_api_key]
+    return company
+
+class RegisterRequest(BaseModel):
+    company_name: str
+
+@app.post("/api/register")
+async def register_company(request: RegisterRequest):
+    try:
+        from app.database import create_company
+        if not request.company_name.strip():
+            raise HTTPException(status_code=400, detail="Company name required.")
+        result = create_company(request.company_name)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 def sanitize_input(text: str) -> str:
     # Remove prompt injection attempts
@@ -79,24 +117,6 @@ def sanitize_input(text: str) -> str:
 init_graph()
 config.validate_config()
 
-limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(
-    title="NeuralOS RAG Backend",
-    description="Minimal FastAPI backend to query knowledge database built on Slack + Notion",
-    version="1.0"
-)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class Message(BaseModel):
     role: str
@@ -130,16 +150,18 @@ async def chat_endpoint(request: ChatRequest):
 async def chat_stream_endpoint(
     request: Request,
     body: ChatRequest,
-    company: str = Depends(verify_api_key)
+    company: dict = Depends(verify_api_key)
 ):
     body.question = sanitize_input(body.question)
-    audit_log("CHAT", f"company={company} question={body.question[:50]}")
+    company_id = str(company["_id"])
+    audit_log("CHAT", f"question={body.question[:50]}", company_id)
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     async def generate():
         try:
-            async for chunk in query_rag_stream(body.question, body.history):
+            namespace = company.get("pinecone_namespace", "default")
+            async for chunk in query_rag_stream(body.question, body.history, namespace):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -154,7 +176,7 @@ async def chat_stream_endpoint(
     )
 
 @app.get("/api/insights")
-async def get_insights(company: str = Depends(verify_api_key)):
+async def get_insights(company: dict = Depends(verify_api_key)):
     insight_queries = [
         {
             "id": "client_risk",
@@ -241,7 +263,7 @@ class SyncRequest(BaseModel):
 @app.post("/api/sync/notion")
 async def sync_notion(
     request: SyncRequest,
-    company: str = Depends(verify_api_key)
+    company: dict = Depends(verify_api_key)
 ):
     try:
         # Use backend config keys if managed
@@ -298,9 +320,16 @@ async def sync_notion(
                     }
                 })
 
-            index.upsert(vectors=upsert_data)
+            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
             total_upserted += len(batch)
 
+        if db_enabled:
+            log_sync(
+                company_id="demo",
+                source="notion",
+                items_synced=len(pages),
+                chunks_indexed=total_upserted
+            )
         return {
             "success": True,
             "message": f"Synced {len(pages)} pages, indexed {total_upserted} chunks.",
@@ -322,7 +351,7 @@ class SlackSyncRequest(BaseModel):
 @app.post("/api/sync/slack")
 async def sync_slack(
     request: SlackSyncRequest,
-    company: str = Depends(verify_api_key)
+    company: dict = Depends(verify_api_key)
 ):
     try:
         # Use backend keys if managed
@@ -379,9 +408,16 @@ async def sync_slack(
                     }
                 })
 
-            index.upsert(vectors=upsert_data)
+            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
             total_upserted += len(batch)
 
+        if db_enabled:
+            log_sync(
+                company_id="demo",
+                source="slack",
+                items_synced=len(channels),
+                chunks_indexed=total_upserted
+            )
         return {
             "success": True,
             "message": f"Synced {len(channels)} channels, indexed {total_upserted} chunks.",
@@ -529,7 +565,7 @@ async def sync_gmail():
                     }
                 })
 
-            index.upsert(vectors=upsert_data)
+            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
             total_upserted += len(batch)
 
         return {
@@ -553,25 +589,27 @@ class FeedbackRequest(BaseModel):
 @app.post("/api/feedback")
 async def submit_feedback(
     request: FeedbackRequest,
-    company: str = Depends(verify_api_key)
+    company: dict = Depends(verify_api_key)
 ):
     try:
+        company_id = str(company["_id"])
+        db_save_feedback(
+            company_id=company_id,
+            question=request.question,
+            answer=request.answer,
+            feedback_type=request.feedback_type,
+            correction=request.correction
+        )
         if request.feedback_type == "good":
-            add_good_answer(request.question, request.answer)
             return {"success": True, "message": "Thanks for the feedback!"}
-
-        elif request.feedback_type == "bad" and request.correction:
-            add_correction(request.question, request.answer, request.correction)
-            return {"success": True, "message": "Correction saved. NeuralOS will improve."}
-
-        return {"success": False, "message": "Invalid feedback type."}
-
+        return {"success": True, "message": "Correction saved. NeuralOS will improve."}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
 @app.get("/api/feedback/stats")
-async def feedback_stats():
-    return get_feedback_stats()
+async def feedback_stats(company: dict = Depends(verify_api_key)):
+    company_id = str(company["_id"])
+    return db_feedback_stats(company_id)
 
 class AgentRequest(BaseModel):
     instruction: str
@@ -583,9 +621,10 @@ class AgentRequest(BaseModel):
 async def run_agent(
     request: Request,
     body: AgentRequest,
-    company: str = Depends(verify_api_key)
+    company: dict = Depends(verify_api_key)
 ):
-    audit_log("AGENT", f"company={company} instruction={body.instruction[:50]}")
+    company_id = str(company["_id"])
+    audit_log("AGENT", f"instruction={body.instruction[:50]}", company_id)
     async def generate():
         try:
             async for chunk in execute_agent(
