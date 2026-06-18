@@ -421,7 +421,9 @@ async def sync_slack(
         return {
             "success": True,
             "message": f"Synced {len(channels)} channels, indexed {total_upserted} chunks.",
-            "channels": [c["channel"] for c in channels]
+            "channels": [c["channel"] for c in channels],
+            "channels_count": len(channels),
+            "chunks_count": total_upserted
         }
 
     except Exception as e:

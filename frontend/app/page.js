@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot } from 'lucide-react'
+import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2 } from 'lucide-react'
 
 const NAV = [
   { icon: MessageSquare, label: 'Chat' },
@@ -42,7 +42,17 @@ export default function Home() {
   const [agentInstruction, setAgentInstruction] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentSteps, setAgentSteps] = useState([])
+  const [toast, setToast] = useState(null)
   const bottomRef = useRef(null)
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null)
+      }, 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
 
   useEffect(() => {
     localStorage.setItem('neuralos_api_key', 'nros_KV-hVD9OVFVEsZ4cYH8Ai25bIbDCf4Wj')
@@ -721,8 +731,14 @@ export default function Home() {
                   }}
                 />
                 <button
+                  disabled={slackSyncing}
                   onClick={async () => {
-                    if (!slackToken.trim()) return
+                    console.log("SLACK BUTTON CLICKED")
+                    alert("Slack button clicked")
+                    if (!slackToken.trim()) {
+                      console.log("SLACK TOKEN IS EMPTY, ABORTING")
+                      return
+                    }
                     setSlackSyncing(true)
                     setSlackSyncMessage('')
                     try {
@@ -730,6 +746,8 @@ export default function Home() {
                       const pineconeKey = localStorage.getItem('neuralos_pinecone_key')
                       const pineconeIndex = localStorage.getItem('neuralos_pinecone_index')
 
+                      console.log("API REQUEST START")
+                      console.log('Syncing Slack with token:', slackToken.slice(0, 10))
                       const res = await fetch('http://localhost:8000/api/sync/slack', {
                         method: 'POST',
                         headers: {
@@ -745,8 +763,21 @@ export default function Home() {
                           pinecone_index: pineconeIndex || 'neuralos'
                         })
                       })
+                      console.log("API RESPONSE", res)
                       const data = await res.json()
                       setSlackSyncMessage(data.message)
+                      if (data.success) {
+                        console.log("SUCCESS STATE SET")
+                        setToast({
+                          title: 'Slack sync completed successfully',
+                          details: [
+                            '✓ Slack synced',
+                            `${data.channels_count || 0} channels imported`,
+                            `${data.chunks_count || 0} messages indexed`,
+                            `Synced at: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          ]
+                        })
+                      }
                     } catch (err) {
                       setSlackSyncMessage('Failed to sync. Is the backend running?')
                     }
@@ -762,7 +793,12 @@ export default function Home() {
                     cursor: slackSyncing ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {slackSyncing ? 'Syncing...' : 'Sync Slack →'}
+                  {slackSyncing ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Loader2 size={13} className="animate-spin" />
+                      Syncing...
+                    </span>
+                  ) : 'Sync Slack →'}
                 </button>
                  {slackSyncMessage && (
                   <div style={{
@@ -1441,6 +1477,60 @@ export default function Home() {
           </div>
         </div>
       </div>
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: 'rgba(13, 15, 24, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '0.5px solid #10b981',
+          borderRadius: '8px',
+          padding: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          zIndex: 9999,
+          width: '320px',
+          animation: 'slideIn 0.3s ease-out',
+          color: '#e2e8f0',
+          fontFamily: 'Inter, -apple-system, sans-serif',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#10b981',
+            fontWeight: '600',
+            fontSize: '13px',
+            marginBottom: '8px',
+          }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: '#10b98120',
+              fontSize: '11px',
+            }}>✓</span>
+            {toast.title}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+          }}>
+            {toast.details.map((detail, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {detail}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
     </div>
   )
