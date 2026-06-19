@@ -144,25 +144,26 @@ async def execute_agent(
                 if "ASSIGNEE:" in content:
                     assignee = content.split("ASSIGNEE:")[1].strip()
 
-                result = create_notion_task(
-                    notion_token=notion_token,
-                    task_title=title,
-                    assignee=assignee,
-                    notes=context_so_far[:500]
-                )
+                yield {
+                    "type": "approval_needed",
+                    "content": f"NeuralOS wants to create this task:\n\nTitle: {title}\nAssignee: {assignee or 'Unassigned'}\n\nApprove this action in the Workflows tab before it's created.",
+                    "pending_action": {
+                        "action_type": "CREATE_TASK",
+                        "title": title,
+                        "assignee": assignee
+                    }
+                }
                 results.append({
                     "step": step_num,
                     "type": step_type,
-                    "result": result["message"]
+                    "result": "Pending approval"
                 })
-                yield {"type": "result", "content": result["message"]}
 
             except Exception as e:
                 yield {"type": "error", "content": f"Task creation failed: {e}"}
 
         elif step_type == "SEND_SLACK" and slack_token:
             try:
-                # Build message from context
                 msg_prompt = (
                     f"Write a brief Slack message for: {step_instruction}\n"
                     f"Based on: {context_so_far[:500]}\n"
@@ -171,20 +172,24 @@ async def execute_agent(
                 response = llm.invoke(msg_prompt)
                 message = response.content
 
-                result = send_slack_message(
-                    slack_token=slack_token,
-                    channel="general",
-                    message=message
-                )
+                # Guardrail: flag for approval instead of auto-sending
+                yield {
+                    "type": "approval_needed",
+                    "content": f"NeuralOS wants to send this Slack message:\n\n{message}\n\nApprove this action in the Workflows tab before it sends.",
+                    "pending_action": {
+                        "action_type": "SEND_SLACK",
+                        "channel": "general",
+                        "message": message
+                    }
+                }
                 results.append({
                     "step": step_num,
                     "type": step_type,
-                    "result": result["message"]
+                    "result": "Pending approval"
                 })
-                yield {"type": "result", "content": result["message"]}
 
             except Exception as e:
-                yield {"type": "error", "content": f"Slack send failed: {e}"}
+                yield {"type": "error", "content": f"Slack message draft failed: {e}"}
 
         elif step_type == "SUMMARIZE":
             try:

@@ -1,6 +1,8 @@
 # Simulated knowledge graph
 # Replace with Neo4j when deploying on server with Python 3.11
 
+from app.database import save_graph_node, save_graph_relationship, get_graph_nodes as db_get_graph_nodes, get_graph_relationships
+
 GRAPH = {
     "people": [
         {"name": "Rahul Sharma", "role": "CEO"},
@@ -37,26 +39,32 @@ GRAPH = {
 
 graph_enabled = True
 
-def get_all_nodes():
+def get_all_nodes(company_id: str = "demo"):
+    """
+    Returns graph nodes from MongoDB if available, else falls back to in-memory.
+    """
+    try:
+        db_nodes = db_get_graph_nodes(company_id)
+        if db_nodes:
+            return [
+                {
+                    "type": [node["type"]],
+                    "name": node["name"],
+                    "props": node["properties"]
+                }
+                for node in db_nodes
+            ]
+    except Exception as e:
+        print(f"Falling back to in-memory graph: {e}")
+
+    # Fallback to in-memory
     nodes = []
     for person in GRAPH["people"]:
-        nodes.append({
-            "type": ["Person"],
-            "name": person["name"],
-            "props": person
-        })
+        nodes.append({"type": ["Person"], "name": person["name"], "props": person})
     for client in GRAPH["clients"]:
-        nodes.append({
-            "type": ["Client"],
-            "name": client["name"],
-            "props": client
-        })
+        nodes.append({"type": ["Client"], "name": client["name"], "props": client})
     for incident in GRAPH["incidents"]:
-        nodes.append({
-            "type": ["Incident"],
-            "name": incident["name"],
-            "props": incident
-        })
+        nodes.append({"type": ["Incident"], "name": incident["name"], "props": incident})
     return nodes
 
 def get_person_context(name: str):
@@ -107,9 +115,29 @@ def query_graph(question: str):
 
     return results if results else ["No specific graph context found."]
 
-def seed_swiftmove_graph():
-    print("INFO: Using simulated knowledge graph.")
-    return True
+def seed_swiftmove_graph(company_id: str = "demo"):
+    """
+    Seeds the knowledge graph with SwiftMove Logistics data.
+    Saves to both in-memory dict and MongoDB for persistence.
+    """
+    try:
+        for person in GRAPH["people"]:
+            save_graph_node(company_id, "Person", person["name"], person)
+
+        for client in GRAPH["clients"]:
+            save_graph_node(company_id, "Client", client["name"], client)
+
+        for incident in GRAPH["incidents"]:
+            save_graph_node(company_id, "Incident", incident["name"], incident)
+
+        for rel in GRAPH["relationships"]:
+            save_graph_relationship(company_id, rel["from"], rel["to"], rel["type"])
+
+        print("INFO: Knowledge graph seeded and persisted to MongoDB.")
+        return True
+    except Exception as e:
+        print(f"ERROR seeding graph: {e}")
+        return False
 
 def init_graph():
     print("INFO: Simulated knowledge graph initialized.")

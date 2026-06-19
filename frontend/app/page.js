@@ -1047,12 +1047,14 @@ export default function Home() {
                       background: '#0d0f18',
                       border: `0.5px solid ${
                         step.type === 'error' ? '#3a1010' :
+                        step.type === 'approval_needed' ? '#4a3010' :
                         step.type === 'done' ? '#0a2a1a' :
                         '#1e2130'
                       }`,
                       borderRadius: '6px',
                       fontSize: '12px',
                       color: step.type === 'error' ? '#ef4444' :
+                             step.type === 'approval_needed' ? '#f59e0b' :
                              step.type === 'done' ? '#10b981' :
                              step.type === 'status' ? '#7c3aed' :
                              step.type === 'step' ? '#a78bfa' :
