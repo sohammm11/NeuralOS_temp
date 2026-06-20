@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, Depends, Header, Request, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ from app.workflows import detect_intent, create_notion_task
 from app.gmail_connector import get_gmail_messages, chunk_emails
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
-from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history
+from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id
 import secrets
 import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -61,13 +61,17 @@ def audit_log(action: str, details: str, company_id: str = "unknown"):
     if db_enabled:
         log_action(company_id, action, details)
 
-def verify_api_key(x_api_key: str = Depends(api_key_header)):
-    if not x_api_key:
+def verify_api_key(
+    x_api_key: str = Depends(api_key_header),
+    cookie_key: str = Cookie(None, alias="neuralos_api_key")
+):
+    key = x_api_key or cookie_key
+    if not key:
         raise HTTPException(
             status_code=401,
-            detail="API key required. Add X-Api-Key header."
+            detail="API key required. Add X-Api-Key header or login cookie."
         )
-    company = get_company_by_api_key(x_api_key)
+    company = get_company_by_api_key(key)
     if not company:
         raise HTTPException(
             status_code=403,
@@ -79,12 +83,20 @@ class RegisterRequest(BaseModel):
     company_name: str
 
 @app.post("/api/register")
-async def register_company(request: RegisterRequest):
+async def register_company(request: RegisterRequest, response: Response):
     try:
         from app.database import create_company
         if not request.company_name.strip():
             raise HTTPException(status_code=400, detail="Company name required.")
         result = create_company(request.company_name)
+
+        response.set_cookie(
+            key="neuralos_api_key",
+            value=result["api_key"],
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 365
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -635,7 +647,8 @@ async def run_agent(
                 embeddings=embeddings,
                 index=index,
                 notion_token=body.notion_token,
-                slack_token=body.slack_token
+                slack_token=body.slack_token,
+                company_id=str(company["_id"])
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
@@ -649,6 +662,77 @@ async def run_agent(
             "X-Accel-Buffering": "no"
         }
     )
+
+@app.get("/api/actions/pending")
+async def list_pending_actions(company: dict = Depends(verify_api_key)):
+    try:
+        company_id = str(company["_id"])
+        actions = get_pending_actions(company_id)
+        return {"success": True, "actions": actions}
+    except Exception as e:
+        return {"success": False, "actions": [], "message": str(e)}
+
+
+class ActionDecisionRequest(BaseModel):
+    action_id: str
+
+@app.post("/api/actions/approve")
+async def approve_action(
+    request: ActionDecisionRequest,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        action = get_action_by_id(request.action_id)
+        if not action:
+            return {"success": False, "message": "Action not found."}
+
+        if action["status"] != "pending":
+            return {"success": False, "message": "Action already resolved."}
+
+        details = action["details"]
+        action_type = action["action_type"]
+        result_message = ""
+
+        if action_type == "SEND_SLACK":
+            from app.workflows import send_slack_message
+            result = send_slack_message(
+                slack_token=details["slack_token"],
+                channel=details["channel"],
+                message=details["message"]
+            )
+            result_message = result["message"]
+
+        elif action_type == "CREATE_TASK":
+            from app.workflows import create_notion_task
+            result = create_notion_task(
+                notion_token=details["notion_token"],
+                task_title=details["title"],
+                assignee=details.get("assignee"),
+                notes=details.get("notes", "")
+            )
+            result_message = result["message"]
+
+        update_action_status(request.action_id, "approved")
+        audit_log("ACTION_APPROVED", f"type={action_type}", str(company["_id"]))
+
+        return {"success": True, "message": result_message}
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.post("/api/actions/reject")
+async def reject_action(
+    request: ActionDecisionRequest,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        update_action_status(request.action_id, "rejected")
+        audit_log("ACTION_REJECTED", f"action_id={request.action_id}", str(company["_id"]))
+        return {"success": True, "message": "Action rejected and discarded."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
 
 @app.get("/api/health")
 async def health_check():

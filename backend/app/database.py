@@ -192,3 +192,38 @@ def get_graph_relationships(company_id: str):
     ))
 
 db_enabled = init_db()
+
+# ─── Pending Actions ─────────────────────────────────────
+
+def create_pending_action(company_id: str, action_type: str, details: dict):
+    action = {
+        "company_id": company_id,
+        "action_type": action_type,
+        "details": details,
+        "status": "pending",
+        "created_at": datetime.utcnow()
+    }
+    result = db.pending_actions.insert_one(action)
+    return str(result.inserted_id)
+
+def get_pending_actions(company_id: str):
+    actions = list(db.pending_actions.find(
+        {"company_id": company_id, "status": "pending"}
+    ).sort("created_at", -1))
+    for a in actions:
+        a["_id"] = str(a["_id"])
+    return actions
+
+def update_action_status(action_id: str, status: str):
+    from bson import ObjectId
+    db.pending_actions.update_one(
+        {"_id": ObjectId(action_id)},
+        {"$set": {"status": status, "resolved_at": datetime.utcnow()}}
+    )
+
+def get_action_by_id(action_id: str):
+    from bson import ObjectId
+    action = db.pending_actions.find_one({"_id": ObjectId(action_id)})
+    if action:
+        action["_id"] = str(action["_id"])
+    return action

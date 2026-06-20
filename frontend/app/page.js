@@ -20,6 +20,18 @@ const SUGGESTIONS = [
 ]
 
 export default function Home() {
+  async function fetchWithRetry(url, options, retries = 1) {
+    try {
+      return await fetch(url, options)
+    } catch (err) {
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 1000))
+        return fetchWithRetry(url, options, retries - 1)
+      }
+      throw err
+    }
+  }
+
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
@@ -46,16 +58,24 @@ export default function Home() {
   const [agentInstruction, setAgentInstruction] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentSteps, setAgentSteps] = useState([])
+  const [pendingActions, setPendingActions] = useState([])
+  const [pendingActionsLoading, setPendingActionsLoading] = useState(false)
+  const [backendOnline, setBackendOnline] = useState(true)
   const bottomRef = useRef(null)
 
   useEffect(() => {
-    localStorage.setItem('neuralos_api_key', 'nros_KV-hVD9OVFVEsZ4cYH8Ai25bIbDCf4Wj')
     const savedCompany = localStorage.getItem('neuralos_company')
     if (!savedCompany) {
       window.location.href = '/onboarding'
     } else {
       setCompany(savedCompany)
     }
+  }, [])
+
+  useEffect(() => {
+    checkBackendHealth()
+    const interval = setInterval(checkBackendHealth, 15000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -84,9 +104,9 @@ export default function Home() {
         const slackToken = localStorage.getItem('neuralos_slack_token')
         const res = await fetch('http://localhost:8000/api/workflow', {
           method: 'POST',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'X-Api-Key': localStorage.getItem('neuralos_api_key')
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             message: userMessage,
@@ -116,11 +136,11 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/chat/stream', {
+      const res = await fetchWithRetry('http://localhost:8000/api/chat/stream', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           question: userMessage,
@@ -170,9 +190,7 @@ export default function Home() {
     setInsightsLoading(true)
     try {
       const res = await fetch('http://localhost:8000/api/insights', {
-        headers: {
-          'X-Api-Key': localStorage.getItem('neuralos_api_key')
-        }
+        credentials: 'include'
       })
       const data = await res.json()
       setInsights(data.insights)
@@ -186,9 +204,9 @@ export default function Home() {
     if (type === 'good') {
       await fetch('http://localhost:8000/api/feedback', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           question: messages[index - 1]?.text || '',
@@ -210,9 +228,9 @@ export default function Home() {
     if (!correction.trim()) return
     await fetch('http://localhost:8000/api/feedback', {
       method: 'POST',
+      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': localStorage.getItem('neuralos_api_key')
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         question: messages[index - 1]?.text || '',
@@ -236,9 +254,9 @@ export default function Home() {
     try {
       const res = await fetch('http://localhost:8000/api/agent', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           instruction: agentInstruction,
@@ -273,6 +291,74 @@ export default function Home() {
     setAgentRunning(false)
   }
 
+  async function fetchPendingActions() {
+    setPendingActionsLoading(true)
+    try {
+      const res = await fetch('http://localhost:8000/api/actions/pending', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setPendingActions(data.actions || [])
+    } catch (err) {
+      setPendingActions([])
+    }
+    setPendingActionsLoading(false)
+  }
+
+  async function handleActionDecision(actionId, decision) {
+    // Mark this specific card as processing
+    setPendingActions(prev => prev.map(a =>
+      a._id === actionId ? { ...a, processing: true } : a
+    ))
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/actions/${decision}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action_id: actionId })
+      })
+      const data = await res.json()
+
+      // Show result state on the card briefly before removing it
+      setPendingActions(prev => prev.map(a =>
+        a._id === actionId
+          ? {
+              ...a,
+              processing: false,
+              resolved: decision,
+              resultMessage: data.message || (decision === 'approve' ? 'Action completed.' : 'Action rejected.')
+            }
+          : a
+      ))
+
+      // Remove the card after showing the result for a moment
+      setTimeout(() => {
+        setPendingActions(prev => prev.filter(a => a._id !== actionId))
+      }, 2500)
+
+    } catch (err) {
+      setPendingActions(prev => prev.map(a =>
+        a._id === actionId
+          ? { ...a, processing: false, resolved: 'error', resultMessage: 'Failed to reach backend.' }
+          : a
+      ))
+    }
+  }
+
+  async function checkBackendHealth() {
+    try {
+      const res = await fetch('http://localhost:8000/api/health', {
+        signal: AbortSignal.timeout(5000)
+      })
+      setBackendOnline(res.ok)
+    } catch (err) {
+      setBackendOnline(false)
+    }
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -282,6 +368,23 @@ export default function Home() {
       fontFamily: 'Inter, -apple-system, sans-serif',
       fontSize: '14px',
     }}>
+      {!backendOnline && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          padding: '8px 16px',
+          background: '#2a1010',
+          borderBottom: '0.5px solid #3a1010',
+          color: '#ef4444',
+          fontSize: '12px',
+          textAlign: 'center',
+        }}>
+          Backend is unreachable — answers and actions won't work until it's back online.
+        </div>
+      )}
 
       {/* Sidebar */}
       <div style={{
@@ -352,6 +455,9 @@ export default function Home() {
                 setActive(label)
                 if (label === 'Insights' && insights.length === 0) {
                   fetchInsights()
+                }
+                if (label === 'Workflows') {
+                  fetchPendingActions()
                 }
               }}
               style={{
@@ -615,9 +721,9 @@ export default function Home() {
 
                       const res = await fetch('http://localhost:8000/api/sync/notion', {
                         method: 'POST',
+                        credentials: 'include',
                         headers: {
-                          'Content-Type': 'application/json',
-                          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+                          'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                           notion_token: notionToken,
@@ -737,9 +843,9 @@ export default function Home() {
 
                       const res = await fetch('http://localhost:8000/api/sync/slack', {
                         method: 'POST',
+                        credentials: 'include',
                         headers: {
-                          'Content-Type': 'application/json',
-                          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+                          'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                           slack_token: slackToken,
@@ -838,9 +944,9 @@ export default function Home() {
                     try {
                       const res = await fetch('http://localhost:8000/api/sync/gmail', {
                         method: 'POST',
+                        credentials: 'include',
                         headers: {
-                          'Content-Type': 'application/json',
-                          'X-Api-Key': localStorage.getItem('neuralos_api_key')
+                          'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({})
                       })
@@ -1068,26 +1174,136 @@ export default function Home() {
               )}
             </div>
           ) : active === 'Workflows' ? (
-            <div style={{
-              margin: 'auto',
-              textAlign: 'center',
-              maxWidth: '400px',
-            }}>
+            <div>
               <div style={{
                 fontSize: '15px',
                 fontWeight: '600',
                 color: '#e2e8f0',
-                marginBottom: '8px',
+                marginBottom: '4px',
                 letterSpacing: '-0.3px',
-              }}>Workflows</div>
+              }}>Pending approvals</div>
               <div style={{
                 fontSize: '12px',
                 color: '#4a5068',
-                lineHeight: '1.6',
+                marginBottom: '24px',
               }}>
-                Automate actions across your tools.<br/>
-                Coming soon.
+                Review and approve actions NeuralOS wants to take.
               </div>
+
+              {pendingActionsLoading ? (
+                <div style={{ fontSize: '12px', color: '#2a2f45' }}>
+                  Loading pending actions...
+                </div>
+              ) : pendingActions.length === 0 ? (
+                <div style={{
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#2a2f45',
+                  fontSize: '12px',
+                  border: '0.5px solid #1e2130',
+                  borderRadius: '8px',
+                }}>
+                  No pending actions. Run the agent to generate some.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {pendingActions.map((action, i) => (
+                    <div key={action._id} style={{
+                      padding: '16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                    }}>
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#f59e0b',
+                        fontWeight: '500',
+                        marginBottom: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>
+                        {action.action_type === 'SEND_SLACK' ? 'Send Slack message' : 'Create Notion task'}
+                      </div>
+
+                      {action.action_type === 'SEND_SLACK' ? (
+                        <div style={{
+                          fontSize: '13px',
+                          color: '#c4c9d4',
+                          lineHeight: '1.6',
+                          marginBottom: '12px',
+                          whiteSpace: 'pre-wrap',
+                        }}>
+                          <strong style={{ color: '#e2e8f0' }}>Channel:</strong> #{action.details.channel}
+                          <br/>
+                          <strong style={{ color: '#e2e8f0' }}>Message:</strong> {action.details.message}
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontSize: '13px',
+                          color: '#c4c9d4',
+                          lineHeight: '1.6',
+                          marginBottom: '12px',
+                        }}>
+                          <strong style={{ color: '#e2e8f0' }}>Title:</strong> {action.details.title}
+                          <br/>
+                          <strong style={{ color: '#e2e8f0' }}>Assignee:</strong> {action.details.assignee || 'Unassigned'}
+                        </div>
+                      )}
+
+                      {action.resolved ? (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 12px',
+                          background: action.resolved === 'approve' ? '#0a2a1a' :
+                                      action.resolved === 'error' ? '#2a1010' : '#1a1a1a',
+                          border: `0.5px solid ${
+                            action.resolved === 'approve' ? '#10b981' :
+                            action.resolved === 'error' ? '#ef4444' : '#4a5068'
+                          }`,
+                          borderRadius: '5px',
+                          fontSize: '12px',
+                          color: action.resolved === 'approve' ? '#10b981' :
+                                 action.resolved === 'error' ? '#ef4444' : '#9ca3af',
+                        }}>
+                          {action.resolved === 'approve' ? '✓' : action.resolved === 'error' ? '✕' : '–'}
+                          {' '}{action.resultMessage}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => handleActionDecision(action._id, 'approve')}
+                            disabled={action.processing}
+                            style={{
+                              padding: '6px 14px',
+                              background: action.processing ? '#1e2130' : '#10b981',
+                              border: 'none',
+                              borderRadius: '5px',
+                              color: action.processing ? '#4a5068' : '#ffffff',
+                              fontSize: '12px',
+                              cursor: action.processing ? 'not-allowed' : 'pointer',
+                            }}
+                          >{action.processing ? 'Sending...' : 'Approve'}</button>
+                          <button
+                            onClick={() => handleActionDecision(action._id, 'reject')}
+                            disabled={action.processing}
+                            style={{
+                              padding: '6px 14px',
+                              background: 'transparent',
+                              border: '0.5px solid #3a1010',
+                              borderRadius: '5px',
+                              color: action.processing ? '#4a5068' : '#ef4444',
+                              fontSize: '12px',
+                              cursor: action.processing ? 'not-allowed' : 'pointer',
+                            }}
+                          >Reject</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : active === 'Settings' ? (
             <div style={{

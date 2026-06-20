@@ -1,5 +1,6 @@
 from app.workflows import create_notion_task, send_slack_message
 from app.feedback import get_relevant_corrections
+from app.database import create_pending_action
 import json
 
 def plan_steps(instruction: str, llm, context: str):
@@ -50,7 +51,8 @@ async def execute_agent(
     embeddings,
     index,
     notion_token: str = None,
-    slack_token: str = None
+    slack_token: str = None,
+    company_id: str = "demo"
 ):
     """
     Main agent execution loop.
@@ -144,14 +146,20 @@ async def execute_agent(
                 if "ASSIGNEE:" in content:
                     assignee = content.split("ASSIGNEE:")[1].strip()
 
+                action_id = create_pending_action(
+                    company_id=company_id,
+                    action_type="CREATE_TASK",
+                    details={
+                        "title": title,
+                        "assignee": assignee,
+                        "notes": context_so_far[:500],
+                        "notion_token": notion_token
+                    }
+                )
                 yield {
                     "type": "approval_needed",
                     "content": f"NeuralOS wants to create this task:\n\nTitle: {title}\nAssignee: {assignee or 'Unassigned'}\n\nApprove this action in the Workflows tab before it's created.",
-                    "pending_action": {
-                        "action_type": "CREATE_TASK",
-                        "title": title,
-                        "assignee": assignee
-                    }
+                    "action_id": action_id
                 }
                 results.append({
                     "step": step_num,
@@ -173,14 +181,19 @@ async def execute_agent(
                 message = response.content
 
                 # Guardrail: flag for approval instead of auto-sending
+                action_id = create_pending_action(
+                    company_id=company_id,
+                    action_type="SEND_SLACK",
+                    details={
+                        "channel": "general",
+                        "message": message,
+                        "slack_token": slack_token
+                    }
+                )
                 yield {
                     "type": "approval_needed",
                     "content": f"NeuralOS wants to send this Slack message:\n\n{message}\n\nApprove this action in the Workflows tab before it sends.",
-                    "pending_action": {
-                        "action_type": "SEND_SLACK",
-                        "channel": "general",
-                        "message": message
-                    }
+                    "action_id": action_id
                 }
                 results.append({
                     "step": step_num,

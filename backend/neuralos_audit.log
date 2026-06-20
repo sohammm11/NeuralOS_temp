@@ -170,3 +170,34 @@
 2026-06-18 15:22:19,271 - Upserting 12 vectors into namespace 'swiftmove_logistics'
 2026-06-18 15:22:22,413 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
 2026-06-18 15:22:22,574 - Upserting 27 vectors into namespace 'swiftmove_logistics'
+2026-06-19 14:20:52,112 - ACTION=AGENT | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=instruction=Summarize the Flipkart situation and send a briefi
+2026-06-19 14:20:52,633 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-19 14:20:52,636 - Querying index with top_k=5
+2026-06-19 14:20:54,541 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:20:56,116 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:20:57,713 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:21:02,981 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:21:04,145 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:21:06,651 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:38:03,753 - ACTION=AGENT | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=instruction=Summarize the Flipkart situation and send a briefi
+2026-06-19 14:38:04,294 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-19 14:38:04,296 - Querying index with top_k=5
+2026-06-19 14:38:05,311 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:38:07,112 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:38:08,760 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:38:14,956 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:38:15,816 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:38:17,838 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:39:53,576 - ACTION=ACTION_APPROVED | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=type=SEND_SLACK
+2026-06-19 14:45:08,469 - ACTION=AGENT | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=instruction=Summarize the Flipkart situation and send a briefi
+2026-06-19 14:45:09,026 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-06-19 14:45:09,028 - Querying index with top_k=5
+2026-06-19 14:45:10,670 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:45:12,288 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:45:14,263 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:45:20,013 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:45:20,836 - AFC is enabled with max remote calls: 10.
+2026-06-19 14:45:23,295 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 503 Service Unavailable"
+2026-06-19 14:45:23,296 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.87 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-06-19 14:45:28,140 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-06-19 14:45:30,824 - ACTION=ACTION_APPROVED | COMPANY=6a2d738b33be174ceb5e61b3 | DETAILS=type=SEND_SLACK

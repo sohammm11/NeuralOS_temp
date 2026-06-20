@@ -41,6 +41,17 @@ export default function Onboarding() {
       const data = await res.json()
 
       if (data.success) {
+        try {
+          await fetch('http://localhost:8000/api/register', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_name: form.company })
+          })
+        } catch (err) {
+          console.error('Registration failed:', err)
+        }
+
         localStorage.setItem('neuralos_company', form.company)
         localStorage.setItem('neuralos_gemini_key', form.geminiKey)
         localStorage.setItem('neuralos_pinecone_key', form.pineconeKey)
@@ -224,7 +235,18 @@ export default function Onboarding() {
 
           {/* Use NeuralOS keys */}
           <button
-            onClick={() => {
+            onClick={async () => {
+              try {
+                await fetch('http://localhost:8000/api/register', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ company_name: form.company || 'My Company' })
+                })
+              } catch (err) {
+                console.error('Registration failed:', err)
+              }
+
               localStorage.setItem('neuralos_company', form.company || 'My Company')
               localStorage.setItem('neuralos_gemini_key', 'neuralos_managed')
               localStorage.setItem('neuralos_pinecone_key', 'neuralos_managed')
