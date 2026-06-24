@@ -12,6 +12,7 @@ from app.slack_connector import get_slack_messages, chunk_slack_messages
 from app.graph import seed_swiftmove_graph, get_all_nodes, graph_enabled, init_graph
 from app.workflows import detect_intent, create_notion_task
 from app.gmail_connector import get_gmail_messages, chunk_emails
+from app.drive_connector import get_drive_files, chunk_drive_files
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
 from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id
@@ -593,6 +594,62 @@ async def sync_gmail():
             "success": False,
             "message": str(e)
         }
+@app.post("/api/sync/drive")
+async def sync_drive(company: dict = Depends(verify_api_key)):
+    try:
+        namespace = company.get("pinecone_namespace", "default")
+        files = get_drive_files(max_files=15)
+
+        if not files:
+            return {"success": False, "message": "No Drive files found or authentication failed."}
+
+        chunks = chunk_drive_files(files)
+
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+            google_api_key=config.GEMINI_API_KEY,
+            output_dimensionality=768
+        )
+
+        batch_size = 50
+        total_upserted = 0
+
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            texts = [c["text"] for c in batch]
+            vectors = embeddings.embed_documents(texts)
+
+            upsert_data = []
+            for j, (chunk, vector) in enumerate(zip(batch, vectors)):
+                upsert_data.append({
+                    "id": f"drive_{i}_{j}",
+                    "values": vector,
+                    "metadata": {"text": chunk["text"], "source": chunk["source"]}
+                })
+
+            index.upsert(vectors=upsert_data, namespace=namespace)
+            total_upserted += len(batch)
+
+        if db_enabled:
+            log_sync(str(company["_id"]), "drive", len(files), total_upserted)
+
+        return {
+            "success": True,
+            "message": f"Synced {len(files)} files, indexed {total_upserted} chunks."
+        }
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/sync/status")
+async def sync_status(company: dict = Depends(verify_api_key)):
+    try:
+        company_id = str(company["_id"])
+        history = get_sync_history(company_id)
+        return {"success": True, "history": history}
+    except Exception as e:
+        return {"success": False, "history": [], "message": str(e)}
 
 class FeedbackRequest(BaseModel):
     question: str
@@ -627,8 +684,8 @@ async def feedback_stats(company: dict = Depends(verify_api_key)):
 
 class AgentRequest(BaseModel):
     instruction: str
-    notion_token: str = None
-    slack_token: str = None
+    notion_token: Optional[str] = None
+    slack_token: Optional[str] = None
 
 @app.post("/api/agent")
 @limiter.limit("10/minute")

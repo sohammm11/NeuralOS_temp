@@ -7,32 +7,38 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/drive.readonly'
+]
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
 TOKEN_FILE = os.path.join(os.path.dirname(__file__), '..', 'gmail_token.json')
 
 
 def authenticate_gmail():
-    """
-    Authenticates with Gmail and returns service object.
-    """
     creds = None
 
-    # Check if token already exists
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
-    # If no valid credentials, authenticate
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"Token refresh failed, re-authenticating: {e}")
+                if os.path.exists(TOKEN_FILE):
+                    os.remove(TOKEN_FILE)
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    CREDENTIALS_FILE, SCOPES
+                )
+                creds = flow.run_local_server(port=0)
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_FILE, SCOPES
             )
             creds = flow.run_local_server(port=0)
 
-        # Save token for next time
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
 

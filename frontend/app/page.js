@@ -55,6 +55,9 @@ export default function Home() {
   const [slackSyncMessage, setSlackSyncMessage] = useState('')
   const [gmailSyncing, setGmailSyncing] = useState(false)
   const [gmailSyncMessage, setGmailSyncMessage] = useState('')
+  const [driveSyncing, setDriveSyncing] = useState(false)
+  const [driveSyncMessage, setDriveSyncMessage] = useState('')
+  const [syncStatus, setSyncStatus] = useState([])
   const [agentInstruction, setAgentInstruction] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentSteps, setAgentSteps] = useState([])
@@ -348,6 +351,23 @@ export default function Home() {
     }
   }
 
+  async function fetchSyncStatus() {
+    try {
+      const res = await fetch('http://localhost:8000/api/sync/status', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setSyncStatus(data.history || [])
+    } catch (err) {
+      setSyncStatus([])
+    }
+  }
+
+  function isStale(syncedAt) {
+    const daysSince = (Date.now() - new Date(syncedAt).getTime()) / (1000 * 60 * 60 * 24)
+    return daysSince > 30
+  }
+
   async function checkBackendHealth() {
     try {
       const res = await fetch('http://localhost:8000/api/health', {
@@ -458,6 +478,9 @@ export default function Home() {
                 }
                 if (label === 'Workflows') {
                   fetchPendingActions()
+                }
+                if (label === 'Sources') {
+                  fetchSyncStatus()
                 }
               }}
               style={{
@@ -665,6 +688,19 @@ export default function Home() {
                 marginBottom: '4px',
                 letterSpacing: '-0.3px',
               }}>Connected sources</div>
+              {syncStatus.some(s => isStale(s.synced_at)) && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: '#2a2010',
+                  border: '0.5px solid #4a3a10',
+                  borderRadius: '6px',
+                  color: '#f59e0b',
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                }}>
+                  Some sources haven't synced in 30+ days. Consider refreshing your tokens and re-syncing for up-to-date answers.
+                </div>
+              )}
               <div style={{
                 fontSize: '12px',
                 color: '#4a5068',
@@ -976,6 +1012,62 @@ export default function Home() {
                     color: '#10b981',
                   }}>
                     {gmailSyncMessage}
+                  </div>
+                )}
+              </div>
+
+              {/* Drive Connect */}
+              <div style={{
+                padding: '16px',
+                background: '#0d0f18',
+                border: '0.5px solid #1e2130',
+                borderRadius: '8px',
+                marginBottom: '16px',
+              }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  color: '#e2e8f0',
+                  marginBottom: '4px',
+                }}>Sync Google Drive</div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#4a5068',
+                  marginBottom: '12px',
+                }}>
+                  Index your Google Docs and Sheets.
+                </div>
+                <button
+                  onClick={async () => {
+                    setDriveSyncing(true)
+                    setDriveSyncMessage('')
+                    try {
+                      const res = await fetch('http://localhost:8000/api/sync/drive', {
+                        method: 'POST',
+                        credentials: 'include',
+                      })
+                      const data = await res.json()
+                      setDriveSyncMessage(data.message)
+                    } catch (err) {
+                      setDriveSyncMessage('Failed to sync. Is the backend running?')
+                    }
+                    setDriveSyncing(false)
+                  }}
+                  style={{
+                    padding: '7px 14px',
+                    background: driveSyncing ? '#1e2130' : '#7c3aed',
+                    border: 'none',
+                    borderRadius: '5px',
+                    color: driveSyncing ? '#4a5068' : '#ffffff',
+                    fontSize: '12px',
+                    cursor: driveSyncing ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {driveSyncing ? 'Syncing...' : 'Sync Drive →'}
+                </button>
+                {driveSyncMessage && (
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#10b981' }}>
+                    {driveSyncMessage}
                   </div>
                 )}
               </div>
