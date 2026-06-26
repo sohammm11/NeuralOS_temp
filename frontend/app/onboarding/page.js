@@ -14,8 +14,40 @@ export default function Onboarding() {
     pineconeIndex: 'neuralos'
   })
 
+  const [authMode, setAuthMode] = useState('signup') // 'signup' or 'login'
+  const [userEmail, setUserEmail] = useState('')
+  const [userPassword, setUserPassword] = useState('')
+
   function updateForm(field, value) {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  async function handleAuth() {
+    if (!userEmail || !userPassword) {
+      setError('Email and password required.')
+      return
+    }
+    setError('')
+    setLoading(true)
+
+    try {
+      const endpoint = authMode === 'signup' ? '/api/auth/signup' : '/api/auth/login'
+      const res = await fetch(`http://localhost:8000${endpoint}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, password: userPassword })
+      })
+      const data = await res.json()
+      if (data.success) {
+        router.push('/')
+      } else {
+        setError(data.message || 'Authentication failed.')
+      }
+    } catch (err) {
+      setError('Could not connect to backend.')
+    }
+    setLoading(false)
   }
 
   async function handleInitialize() {
@@ -56,7 +88,6 @@ export default function Onboarding() {
         localStorage.setItem('neuralos_gemini_key', form.geminiKey)
         localStorage.setItem('neuralos_pinecone_key', form.pineconeKey)
         localStorage.setItem('neuralos_pinecone_index', form.pineconeIndex)
-        router.push('/')
       } else {
         setError(data.message || 'Failed to initialize. Check your keys.')
       }
@@ -286,6 +317,56 @@ export default function Onboarding() {
           >
             {loading ? 'Initializing...' : 'Initialize company brain →'}
           </button>
+
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '0.5px solid #1e2130' }}>
+            <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '12px' }}>
+              {authMode === 'signup' ? 'Create your account' : 'Log in'}
+            </div>
+            <input
+              placeholder="Email"
+              value={userEmail}
+              onChange={e => setUserEmail(e.target.value)}
+              style={inputStyle}
+            />
+            <div style={{ marginTop: '10px' }}>
+              <input
+                placeholder="Password"
+                type="password"
+                value={userPassword}
+                onChange={e => setUserPassword(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <button
+              onClick={handleAuth}
+              disabled={loading}
+              style={{
+                width: '100%',
+                marginTop: '10px',
+                padding: '10px',
+                background: loading ? '#1e2130' : 'transparent',
+                border: '0.5px solid #7c3aed',
+                borderRadius: '6px',
+                color: loading ? '#4a5068' : '#a78bfa',
+                fontSize: '13px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {authMode === 'signup' ? 'Sign up' : 'Log in'}
+            </button>
+            <div
+              onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}
+              style={{
+                fontSize: '11px',
+                color: '#4a5068',
+                textAlign: 'center',
+                marginTop: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              {authMode === 'signup' ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
