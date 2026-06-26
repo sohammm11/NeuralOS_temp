@@ -227,3 +227,50 @@ def get_action_by_id(action_id: str):
     if action:
         action["_id"] = str(action["_id"])
     return action
+
+import jwt
+import bcrypt
+from datetime import timedelta
+
+JWT_SECRET = "neuralos-dev-secret-change-in-production"
+JWT_ALGORITHM = "HS256"
+
+def create_user(company_id: str, email: str, password: str, name: str = ""):
+    existing = db.users.find_one({"email": email})
+    if existing:
+        return {"success": False, "message": "User already exists."}
+
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+
+    user = {
+        "company_id": company_id,
+        "email": email,
+        "password_hash": password_hash,
+        "name": name,
+        "created_at": datetime.utcnow()
+    }
+    result = db.users.insert_one(user)
+    return {"success": True, "user_id": str(result.inserted_id)}
+
+def verify_user(email: str, password: str):
+    user = db.users.find_one({"email": email})
+    if not user:
+        return None
+    if bcrypt.checkpw(password.encode(), user["password_hash"]):
+        return user
+    return None
+
+def create_jwt_token(user_id: str, company_id: str, email: str):
+    payload = {
+        "user_id": str(user_id),
+        "company_id": str(company_id),
+        "email": email,
+        "exp": datetime.utcnow() + timedelta(days=7)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_jwt_token(token: str):
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None

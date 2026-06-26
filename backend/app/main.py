@@ -15,7 +15,7 @@ from app.gmail_connector import get_gmail_messages, chunk_emails
 from app.drive_connector import get_drive_files, chunk_drive_files
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
-from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id
+from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id, create_user, verify_user, create_jwt_token, decode_jwt_token
 import secrets
 import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -650,6 +650,64 @@ async def sync_status(company: dict = Depends(verify_api_key)):
         return {"success": True, "history": history}
     except Exception as e:
         return {"success": False, "history": [], "message": str(e)}
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    name: str = ""
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/signup")
+async def signup(request: SignupRequest, response: Response, company: dict = Depends(verify_api_key)):
+    try:
+        result = create_user(
+            company_id=str(company["_id"]),
+            email=request.email,
+            password=request.password,
+            name=request.name
+        )
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+        token = create_jwt_token(result["user_id"], str(company["_id"]), request.email)
+        response.set_cookie(
+            key="neuralos_user_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7
+        )
+        return {"success": True, "message": "Account created."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest, response: Response):
+    user = verify_user(request.email, request.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token = create_jwt_token(str(user["_id"]), str(user["company_id"]), user["email"])
+    response.set_cookie(
+        key="neuralos_user_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7
+    )
+    return {"success": True, "message": "Logged in.", "name": user.get("name", "")}
+
+@app.get("/api/auth/me")
+async def get_current_user(neuralos_user_token: str = Cookie(None)):
+    if not neuralos_user_token:
+        raise HTTPException(status_code=401, detail="Not logged in.")
+    payload = decode_jwt_token(neuralos_user_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired session.")
+    return {"success": True, "email": payload["email"], "company_id": payload["company_id"]}
 
 class FeedbackRequest(BaseModel):
     question: str
