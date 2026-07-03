@@ -64,6 +64,8 @@ export default function Home() {
   const [pendingActions, setPendingActions] = useState([])
   const [pendingActionsLoading, setPendingActionsLoading] = useState(false)
   const [backendOnline, setBackendOnline] = useState(true)
+  const [alerts, setAlerts] = useState([])
+  const [scanning, setScanning] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -73,6 +75,9 @@ export default function Home() {
     } else {
       setCompany(savedCompany)
     }
+    fetchAlerts()
+    const interval = setInterval(fetchAlerts, 60000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -379,6 +384,40 @@ export default function Home() {
     }
   }
 
+  async function fetchAlerts() {
+    try {
+      const res = await fetch('http://localhost:8000/api/alerts', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setAlerts(data.alerts || [])
+    } catch (err) {}
+  }
+
+  async function runScan() {
+    setScanning(true)
+    try {
+      await fetch('http://localhost:8000/api/anomaly/scan', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      await fetchAlerts()
+    } catch (err) {}
+    setScanning(false)
+  }
+
+  async function resolveAlert(alertId) {
+    try {
+      await fetch('http://localhost:8000/api/alerts/resolve', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert_id: alertId })
+      })
+      setAlerts(prev => prev.filter(a => a._id !== alertId))
+    } catch (err) {}
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -403,6 +442,71 @@ export default function Home() {
           textAlign: 'center',
         }}>
           Backend is unreachable — answers and actions won't work until it's back online.
+        </div>
+      )}
+
+      {alerts.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: !backendOnline ? '33px' : 0,
+          left: 0,
+          right: 0,
+          zIndex: 99,
+        }}>
+          {alerts.map((alert, i) => (
+            <div key={alert._id} style={{
+              padding: '8px 16px',
+              background: alert.severity === 'critical' ? '#2a0a0a' : '#1a1a0a',
+              borderBottom: `0.5px solid ${alert.severity === 'critical' ? '#5a1010' : '#4a4010'}`,
+              color: alert.severity === 'critical' ? '#ef4444' : '#f59e0b',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}>
+              <span>
+                {alert.severity === 'critical' ? '🔴' : '⚠️'} 
+                {' '}<strong>{alert.title}</strong>
+                {' — '}{alert.description}
+              </span>
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <button
+                  onClick={() => {
+                    setActive('Chat')
+                    const queries = {
+                      'client_risk': 'Which clients are at risk right now and what are the recent issues?',
+                      'overdue_actions': 'What action items are pending or overdue and who owns them?',
+                      'tech_risk': 'What are the current technical risks and known system problems?'
+                    }
+                    askQuestion(queries[alert.alert_type] || `Tell me more about: ${alert.title}`)
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    background: 'transparent',
+                    border: `0.5px solid ${alert.severity === 'critical' ? '#5a1010' : '#4a4010'}`,
+                    borderRadius: '4px',
+                    color: alert.severity === 'critical' ? '#ef4444' : '#f59e0b',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >Investigate →</button>
+                <button
+                  onClick={() => resolveAlert(alert._id)}
+                  style={{
+                    padding: '3px 8px',
+                    background: 'transparent',
+                    border: '0.5px solid #2a2f45',
+                    borderRadius: '4px',
+                    color: '#4a5068',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                  }}
+                >Dismiss</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -569,12 +673,33 @@ export default function Home() {
           {active === 'Insights' ? (
   <div>
     <div style={{
-      fontSize: '15px',
-      fontWeight: '600',
-      color: '#e2e8f0',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: '4px',
-      letterSpacing: '-0.3px',
-    }}>Company insights</div>
+    }}>
+      <div style={{
+        fontSize: '15px',
+        fontWeight: '600',
+        color: '#e2e8f0',
+        letterSpacing: '-0.3px',
+      }}>Company insights</div>
+      <button
+        onClick={runScan}
+        disabled={scanning}
+        style={{
+          padding: '5px 12px',
+          background: 'transparent',
+          border: '0.5px solid #1e2130',
+          borderRadius: '5px',
+          color: scanning ? '#4a5068' : '#a78bfa',
+          fontSize: '11px',
+          cursor: scanning ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {scanning ? 'Scanning...' : '⚡ Run anomaly scan'}
+      </button>
+    </div>
     <div style={{
       fontSize: '12px',
       color: '#4a5068',

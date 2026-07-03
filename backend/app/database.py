@@ -274,3 +274,41 @@ def decode_jwt_token(token: str):
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except Exception:
         return None
+
+# ─── Alerts ──────────────────────────────────────────────
+
+def create_alert(company_id: str, alert_type: str, 
+                 title: str, description: str, severity: str = "warning"):
+    existing = db.alerts.find_one({
+        "company_id": company_id,
+        "title": title,
+        "resolved": False
+    })
+    if existing:
+        return str(existing["_id"])
+    
+    result = db.alerts.insert_one({
+        "company_id": company_id,
+        "alert_type": alert_type,
+        "title": title,
+        "description": description,
+        "severity": severity,
+        "resolved": False,
+        "created_at": datetime.utcnow()
+    })
+    return str(result.inserted_id)
+
+def get_active_alerts(company_id: str):
+    alerts = list(db.alerts.find(
+        {"company_id": company_id, "resolved": False}
+    ).sort("created_at", -1))
+    for a in alerts:
+        a["_id"] = str(a["_id"])
+    return alerts
+
+def resolve_alert(alert_id: str):
+    from bson import ObjectId
+    db.alerts.update_one(
+        {"_id": ObjectId(alert_id)},
+        {"$set": {"resolved": True, "resolved_at": datetime.utcnow()}}
+    )

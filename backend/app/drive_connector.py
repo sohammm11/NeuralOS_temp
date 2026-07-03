@@ -4,11 +4,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import io
 
 def get_drive_service():
-    creds = authenticate_gmail.__globals__['Credentials']
-    from app.gmail_connector import TOKEN_FILE, SCOPES
-    from google.oauth2.credentials import Credentials
-    import os
-    creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    from app.gmail_connector import authenticate_gmail
+    gmail_service = authenticate_gmail()
+    creds = gmail_service._http.credentials
     return build('drive', 'v3', credentials=creds)
 
 
@@ -20,10 +18,11 @@ def get_drive_files(max_files: int = 15):
         response = service.files().list(
             pageSize=max_files,
             fields="files(id, name, mimeType)",
-            q="trashed = false and (mimeType = 'application/vnd.google-apps.document' or mimeType = 'application/vnd.google-apps.spreadsheet')"
+            q="trashed = false"
         ).execute()
 
         files = response.get('files', [])
+        print(f"DEBUG: Drive API returned {len(files)} files: {[f['name'] for f in files]}")
 
         for f in files:
             try:
@@ -46,13 +45,24 @@ def get_drive_files(max_files: int = 15):
 
 
 def extract_file_content(service, file_id, mime_type):
-    export_mime = (
-        'text/plain' if mime_type == 'application/vnd.google-apps.document'
-        else 'text/csv'
-    )
-    request = service.files().export_media(fileId=file_id, mimeType=export_mime)
-    content = request.execute()
-    return content.decode('utf-8', errors='ignore')
+    try:
+        if mime_type == 'application/vnd.google-apps.document':
+            request = service.files().export_media(fileId=file_id, mimeType='text/plain')
+            content = request.execute()
+            return content.decode('utf-8', errors='ignore')
+        elif mime_type == 'application/vnd.google-apps.spreadsheet':
+            request = service.files().export_media(fileId=file_id, mimeType='text/csv')
+            content = request.execute()
+            return content.decode('utf-8', errors='ignore')
+        elif mime_type == 'application/pdf':
+            request = service.files().get_media(fileId=file_id)
+            content = request.execute()
+            return f"[PDF file - binary content, {len(content)} bytes - text extraction not implemented]"
+        else:
+            return None
+    except Exception as e:
+        print(f"Could not extract {mime_type}: {e}")
+        return None
 
 
 def chunk_drive_files(files: list):

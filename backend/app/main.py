@@ -16,6 +16,8 @@ from app.drive_connector import get_drive_files, chunk_drive_files
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
 from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id, create_user, verify_user, create_jwt_token, decode_jwt_token
+from app.anomaly import analyze_company
+from app.database import create_alert, get_active_alerts, resolve_alert
 import secrets
 import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -845,6 +847,51 @@ async def reject_action(
         update_action_status(request.action_id, "rejected")
         audit_log("ACTION_REJECTED", f"action_id={request.action_id}", str(company["_id"]))
         return {"success": True, "message": "Action rejected and discarded."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.post("/api/anomaly/scan")
+async def run_anomaly_scan(company: dict = Depends(verify_api_key)):
+    try:
+        company_id = str(company["_id"])
+        namespace = company.get("pinecone_namespace", "swiftmove_logistics")
+        print(f"DEBUG: company={company.get('name')} namespace={namespace}")
+        
+        alerts = analyze_company(
+            company_id=company_id,
+            index=index,
+            embeddings=embeddings,
+            namespace=namespace
+        )
+        return {
+            "success": True,
+            "alerts_found": len(alerts),
+            "message": f"Scan complete. {len(alerts)} anomalies detected."
+        }
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/alerts")
+async def get_alerts(company: dict = Depends(verify_api_key)):
+    try:
+        company_id = str(company["_id"])
+        alerts = get_active_alerts(company_id)
+        return {"success": True, "alerts": alerts}
+    except Exception as e:
+        return {"success": False, "alerts": [], "message": str(e)}
+
+class ResolveAlertRequest(BaseModel):
+    alert_id: str
+
+@app.post("/api/alerts/resolve")
+async def resolve_alert_endpoint(
+    request: ResolveAlertRequest,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        resolve_alert(request.alert_id)
+        return {"success": True, "message": "Alert resolved."}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
