@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network } from 'lucide-react'
+import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network, Clock } from 'lucide-react'
 import { tokens, btn, card } from './design'
 import KnowledgeGraph from './components/KnowledgeGraph'
 
@@ -11,6 +11,7 @@ const NAV = [
   { icon: Database, label: 'Sources' },
   { icon: Bot, label: 'Agent' },
   { icon: Network, label: 'Graph' },
+  { icon: Clock, label: 'Timeline' },
   { icon: GitBranch, label: 'Workflows' },
   { icon: Settings, label: 'Settings' },
 ]
@@ -71,6 +72,13 @@ export default function Home() {
   const [scanning, setScanning] = useState(false)
   const [showAlerts, setShowAlerts] = useState(false)
   const [selectedNode, setSelectedNode] = useState(null)
+  const [thinkingSteps, setThinkingSteps] = useState([])
+  const [showThinking, setShowThinking] = useState(false)
+  const [timelineEvents, setTimelineEvents] = useState([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [extractMessage, setExtractMessage] = useState('')
+  const [isExtracting, setIsExtracting] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -81,9 +89,44 @@ export default function Home() {
       setCompany(savedCompany)
     }
     fetchAlerts()
+    fetchSyncStatus()
     const interval = setInterval(fetchAlerts, 60000)
     return () => clearInterval(interval)
   }, [])
+
+  async function fetchTimeline() {
+    setTimelineLoading(true)
+    try {
+      const res = await fetch('http://localhost:8000/api/timeline', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setTimelineEvents(data.events || [])
+    } catch (err) {}
+    setTimelineLoading(false)
+  }
+
+  async function extractGraph() {
+    setExtracting(true)
+    setIsExtracting(true)  // pause health checks
+    setExtractMessage('')
+    try {
+      const res = await fetch('http://localhost:8000/api/graph/extract', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setExtractMessage(data.message)
+      if (data.success) {
+        setTimeout(() => setActive('Graph'), 1500)
+      }
+    } catch (err) {
+      setExtractMessage('Extraction failed.')
+    }
+    setExtracting(false)
+    setIsExtracting(false)  // resume health checks
+    setBackendOnline(true)  // reset banner immediately
+  }
 
   useEffect(() => {
     checkBackendHealth()
@@ -96,6 +139,7 @@ export default function Home() {
   }, [messages])
 
   async function askQuestion(q) {
+    setThinkingSteps([])
     const userMessage = q || question
     if (!userMessage.trim()) return
     setQuestion('')
@@ -178,7 +222,11 @@ export default function Home() {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              if (data.type === 'text') {
+              if (data.type === 'thinking') {
+                console.log('THINKING STEP:', data)
+                setThinkingSteps(prev => [...prev, data])
+                setShowThinking(true)
+              } else if (data.type === 'text') {
                 setMessages(prev => prev.map((msg, i) =>
                   i === prev.length - 1 ? { ...msg, text: msg.text + data.content } : msg
                 ))
@@ -186,6 +234,11 @@ export default function Home() {
                 setMessages(prev => prev.map((msg, i) =>
                   i === prev.length - 1 ? { ...msg, sources: data.sources } : msg
                 ))
+                setThinkingSteps(prev => [...prev, {
+                  type: 'thinking',
+                  step: 'done',
+                  content: 'Answer complete'
+                }])
               }
             } catch (e) { }
           }
@@ -379,9 +432,10 @@ export default function Home() {
   }
 
   async function checkBackendHealth() {
+    if (isExtracting) return  // skip health check during extraction
     try {
       const res = await fetch('http://localhost:8000/api/health', {
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(10000)
       })
       setBackendOnline(res.ok)
     } catch (err) {
@@ -518,6 +572,7 @@ export default function Home() {
                 if (label === 'Insights' && insights.length === 0) fetchInsights()
                 if (label === 'Workflows') fetchPendingActions()
                 if (label === 'Sources') fetchSyncStatus()
+                if (label === 'Timeline') fetchTimeline()
               }}
               style={{
                 display: 'flex',
@@ -721,12 +776,18 @@ export default function Home() {
         {/* Content Area */}
         <div style={{
           flex: 1,
-          overflowY: 'auto',
-          padding: '32px 24px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '24px',
+          overflow: 'hidden',
         }}>
+          {/* Messages area */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '32px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}>
           {active === 'Insights' ? (
   <div>
     <div style={{
@@ -1255,72 +1316,61 @@ export default function Home() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[
-                  {
-                    name: 'Slack — #incidents',
-                    desc: 'SLA breaches, escalations, incident threads',
-                    count: '9 messages',
-                    time: 'Synced just now',
-                  },
-                  {
-                    name: 'Slack — #general',
-                    desc: 'Company announcements, onboarding updates',
-                    count: '5 messages',
-                    time: 'Synced just now',
-                  },
-                  {
-                    name: 'Notion — Flipkart Post-Mortem',
-                    desc: 'December 2024 incident analysis and action items',
-                    count: '1 page',
-                    time: 'Synced just now',
-                  },
-                  {
-                    name: 'Notion — Flipkart Client Account',
-                    desc: 'Account health, SLA terms, key contacts',
-                    count: '1 page',
-                    time: 'Synced just now',
-                  },
-                  {
-                    name: 'Notion — Architecture Overview',
-                    desc: 'Tech stack, known issues, improvement plans',
-                    count: '1 page',
-                    time: 'Synced just now',
-                  },
-                ].map((src, i) => (
-                  <div key={i} style={{
-                    padding: '14px 16px',
-                    background: '#0d0f18',
+                {syncStatus.length === 0 ? (
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#2a2f45',
+                    padding: '16px',
+                    textAlign: 'center',
                     border: '0.5px solid #1e2130',
                     borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
                   }}>
-                    <div>
-                      <div style={{
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        color: '#e2e8f0',
-                        marginBottom: '3px',
-                      }}>{src.name}</div>
-                      <div style={{
-                        fontSize: '12px',
-                        color: '#4a5068',
-                      }}>{src.desc}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '24px' }}>
-                      <div style={{
-                        fontSize: '11px',
-                        color: '#10b981',
-                        marginBottom: '2px',
-                      }}>{src.count}</div>
-                      <div style={{
-                        fontSize: '11px',
-                        color: '#2a2f45',
-                      }}>{src.time}</div>
-                    </div>
+                    No sync history yet. Sync your tools above.
                   </div>
-                ))}
+                ) : (
+                  syncStatus.map((src, i) => (
+                    <div key={i} style={{
+                      padding: '14px 16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          color: '#e2e8f0',
+                          marginBottom: '3px',
+                        }}>{src.source?.charAt(0).toUpperCase() + src.source?.slice(1)} — synced</div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#4a5068',
+                        }}>{src.items_synced} items · {src.chunks_indexed} chunks indexed</div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '24px' }}>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#10b981',
+                          marginBottom: '2px',
+                        }}>{src.chunks_indexed} chunks</div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#2a2f45',
+                        }}>
+                          {new Date(src.synced_at).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ) : active === 'Agent' ? (
@@ -1447,12 +1497,146 @@ export default function Home() {
                 </div>
               )}
             </div>
+          ) : active === 'Timeline' ? (
+            <div>
+              <div style={{
+                fontSize: '15px',
+                fontWeight: '600',
+                color: '#e2e8f0',
+                marginBottom: '4px',
+                letterSpacing: '-0.3px',
+              }}>Company timeline</div>
+              <div style={{
+                fontSize: '12px',
+                color: '#4a5068',
+                marginBottom: '24px',
+              }}>
+                Everything NeuralOS knows, in chronological order.
+              </div>
+
+              {timelineLoading ? (
+                <div style={{ fontSize: '12px', color: '#2a2f45' }}>Loading timeline...</div>
+              ) : timelineEvents.length === 0 ? (
+                <div style={{
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#2a2f45',
+                  fontSize: '12px',
+                  border: '0.5px solid #1e2130',
+                  borderRadius: '8px',
+                }}>
+                  No events yet. Sync your tools and run anomaly scans to populate the timeline.
+                </div>
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  {/* Vertical line */}
+                  <div style={{
+                    position: 'absolute',
+                    left: '15px',
+                    top: '8px',
+                    bottom: '8px',
+                    width: '1px',
+                    background: '#1e2130',
+                  }}/>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}>
+                    {timelineEvents.map((event, i) => (
+                      <div
+                        key={event.id}
+                        style={{
+                          display: 'flex',
+                          gap: '16px',
+                          alignItems: 'flex-start',
+                          padding: '10px 0',
+                          cursor: event.type === 'sync' ? 'default' : 'pointer',
+                        }}
+                        onClick={() => {
+                          if (event.type === 'sync') return
+                          setActive('Chat')
+                          askQuestion(`Tell me about this event: ${event.title}. ${event.description}`)
+                        }}
+                      >
+                        {/* Dot */}
+                        <div style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          background: event.color,
+                          flexShrink: 0,
+                          marginTop: '4px',
+                          zIndex: 1,
+                          boxShadow: `0 0 6px ${event.color}60`,
+                          marginLeft: '11px',
+                        }}/>
+
+                        {/* Content */}
+                        <div style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          background: '#0d0f18',
+                          border: '0.5px solid #1e2130',
+                          borderRadius: '6px',
+                          transition: 'border-color 0.15s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = event.color + '60'}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2130'}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '4px',
+                          }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: '500',
+                              color: '#e2e8f0',
+                            }}>{event.title}</div>
+                            <div style={{
+                              fontSize: '10px',
+                              color: '#4a5068',
+                              flexShrink: 0,
+                              marginLeft: '12px',
+                            }}>
+                              {new Date(event.timestamp).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: '11px',
+                            color: '#4a5068',
+                            lineHeight: '1.5',
+                          }}>{event.description}</div>
+                          <div style={{
+                            marginTop: '6px',
+                            fontSize: '10px',
+                            color: event.color,
+                            opacity: 0.7,
+                          }}>
+                            {event.type.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : active === 'Graph' ? (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px' }}>
               <div style={{
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'space-between',
+                marginBottom: '16px',
               }}>
                 <div>
                   <div style={{
@@ -1462,9 +1646,36 @@ export default function Home() {
                     letterSpacing: '-0.3px',
                   }}>Knowledge graph</div>
                   <div style={{ fontSize: '12px', color: '#4a5068', marginTop: '2px' }}>
-                    Click any node to investigate
+                    Auto-extracted from your company data. Click any node to investigate.
                   </div>
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                  <button
+                    onClick={extractGraph}
+                    disabled={extracting}
+                    style={{
+                      padding: '6px 14px',
+                      background: extracting ? '#1e2130' : 'transparent',
+                      border: '0.5px solid #7c3aed',
+                      borderRadius: '5px',
+                      color: extracting ? '#4a5068' : '#a78bfa',
+                      fontSize: '11px',
+                      cursor: extracting ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {extracting ? 'Extracting...' : '⚡ Auto-extract from data'}
+                  </button>
+                  {extractMessage && (
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#10b981',
+                      textAlign: 'right',
+                      maxWidth: '200px',
+                    }}>{extractMessage}</div>
+                  )}
+                </div>
+              </div>
                 {selectedNode && (
                   <div style={{
                     padding: '8px 14px',
@@ -1504,7 +1715,6 @@ export default function Home() {
                     >Ask NeuralOS →</button>
                   </div>
                 )}
-              </div>
 
               {/* Legend */}
               <div style={{
@@ -1705,15 +1915,8 @@ export default function Home() {
                 borderRadius: '8px',
                 marginBottom: '10px',
               }}>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#4a5068',
-                  marginBottom: '4px',
-                }}>Company</div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#e2e8f0',
-                }}>SwiftMove Logistics</div>
+                <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '4px' }}>Company</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0' }}>{company}</div>
               </div>
 
               <div style={{
@@ -1723,15 +1926,34 @@ export default function Home() {
                 borderRadius: '8px',
                 marginBottom: '10px',
               }}>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#4a5068',
-                  marginBottom: '4px',
-                }}>AI Model</div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#e2e8f0',
-                }}>Gemini 2.5 Flash</div>
+                <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '4px' }}>AI Model</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0' }}>Gemini 2.5 Flash</div>
+              </div>
+
+              <div style={{
+                padding: '14px 16px',
+                background: '#0d0f18',
+                border: '0.5px solid #1e2130',
+                borderRadius: '8px',
+                marginBottom: '10px',
+              }}>
+                <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '4px' }}>Vector Database</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0' }}>
+                  Pinecone — {localStorage.getItem('neuralos_pinecone_index') || 'neuralos'} index
+                </div>
+              </div>
+
+              <div style={{
+                padding: '14px 16px',
+                background: '#0d0f18',
+                border: '0.5px solid #1e2130',
+                borderRadius: '8px',
+                marginBottom: '10px',
+              }}>
+                <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '4px' }}>Knowledge graph</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0' }}>
+                  MongoDB Atlas — {syncStatus.length} sync events recorded
+                </div>
               </div>
 
               <div style={{
@@ -1740,15 +1962,10 @@ export default function Home() {
                 border: '0.5px solid #1e2130',
                 borderRadius: '8px',
               }}>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#4a5068',
-                  marginBottom: '4px',
-                }}>Vector Database</div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#e2e8f0',
-                }}>Pinecone — neuralos index</div>
+                <div style={{ fontSize: '12px', color: '#4a5068', marginBottom: '4px' }}>Connected sources</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0' }}>
+                  {[...new Set(syncStatus.map(s => s.source))].join(', ') || 'None synced yet'}
+                </div>
               </div>
             </div>
           ) : (
@@ -1982,6 +2199,116 @@ export default function Home() {
               ))}
               <div ref={bottomRef} />
             </>
+          )}
+          </div>
+
+          {/* Thinking panel */}
+          {showThinking && thinkingSteps.length > 0 && (
+            <div style={{
+              width: '260px',
+              borderLeft: '0.5px solid #1e2130',
+              padding: '16px',
+              overflowY: 'auto',
+              flexShrink: 0,
+              background: '#080b11',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+              }}>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#4a5068',
+                  fontWeight: '500',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>Reasoning trace</div>
+                <button
+                  onClick={() => setShowThinking(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#4a5068',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    lineHeight: 1,
+                  }}
+                >×</button>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}>
+                {thinkingSteps.map((step, i) => (
+                  <div key={i} style={{
+                    padding: '10px 12px',
+                    background: '#0d0f18',
+                    border: '0.5px solid #1e2130',
+                    borderRadius: '6px',
+                  }}>
+                    <div style={{
+                      fontSize: '11px',
+                      color: step.step === 'searching' ? '#7c3aed' :
+                             step.step === 'retrieved' ? '#10b981' :
+                             step.step === 'reasoning' ? '#f59e0b' :
+                             step.step === 'done' ? '#10b981' : '#4a5068',
+                      fontWeight: '500',
+                      marginBottom: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}>
+                      {step.step === 'searching' ? '🔍' :
+                       step.step === 'retrieved' ? '📄' :
+                       step.step === 'reasoning' ? '🧠' :
+                       step.step === 'done' ? '✓' : '✓'}
+                      {step.step.charAt(0).toUpperCase() + step.step.slice(1)}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#6b7280',
+                      lineHeight: '1.5',
+                    }}>{step.content}</div>
+
+                    {step.sources && step.sources.length > 0 && (
+                      <div style={{
+                        marginTop: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}>
+                        {step.sources.map((s, j) => (
+                          <div key={j} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '10px',
+                          }}>
+                            <span style={{
+                              color: '#4a5068',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: '160px',
+                            }}>{s.source}</span>
+                            <span style={{
+                              color: s.score > 75 ? '#10b981' :
+                                     s.score > 60 ? '#f59e0b' : '#4a5068',
+                              fontWeight: '500',
+                              flexShrink: 0,
+                            }}>{s.score}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

@@ -962,6 +962,139 @@ async def get_graph_data(company: dict = Depends(verify_api_key)):
         return {"success": False, "nodes": [], "links": [], "message": str(e)}
 
 
+@app.get("/api/timeline")
+async def get_timeline(company: dict = Depends(verify_api_key)):
+    try:
+        company_id = str(company["_id"])
+        
+        # Pull from audit logs, sync history, alerts, pending actions
+        from app.database import db
+        from bson import ObjectId
+        
+        events = []
+        
+        # Sync events
+        syncs = list(db.sync_history.find(
+            {"company_id": company_id}
+        ).sort("synced_at", -1).limit(20))
+        
+        for s in syncs:
+            events.append({
+                "id": str(s["_id"]),
+                "type": "sync",
+                "title": f"Synced {s['source'].title()}",
+                "description": f"{s['items_synced']} items indexed, {s['chunks_indexed']} chunks",
+                "timestamp": s["synced_at"].isoformat(),
+                "color": "#7c3aed"
+            })
+        
+        # Alert events
+        alerts = list(db.alerts.find(
+            {"company_id": company_id}
+        ).sort("created_at", -1).limit(20))
+        
+        for a in alerts:
+            events.append({
+                "id": str(a["_id"]),
+                "type": "alert",
+                "title": a["title"],
+                "description": a["description"],
+                "timestamp": a["created_at"].isoformat(),
+                "color": "#ef4444" if a["severity"] == "critical" else "#f59e0b",
+                "severity": a["severity"]
+            })
+        
+        # Feedback events
+        feedback = list(db.feedback.find(
+            {"company_id": company_id}
+        ).sort("created_at", -1).limit(10))
+        
+        for f in feedback:
+            events.append({
+                "id": str(f["_id"]),
+                "type": "feedback",
+                "title": f"{'Correction' if f['feedback_type'] == 'bad' else 'Confirmed answer'}",
+                "description": f"Q: {f['question'][:80]}...",
+                "timestamp": f["created_at"].isoformat(),
+                "color": "#10b981"
+            })
+
+        # Approved/rejected actions
+        actions = list(db.pending_actions.find(
+            {"company_id": company_id, "status": {"$in": ["approved", "rejected"]}}
+        ).sort("resolved_at", -1).limit(10))
+
+        for a in actions:
+            events.append({
+                "id": str(a["_id"]),
+                "type": "action",
+                "title": f"Agent action {a['status']}: {a['action_type']}",
+                "description": str(a.get("details", {}))[:100],
+                "timestamp": a.get("resolved_at", a["created_at"]).isoformat(),
+                "color": "#10b981" if a["status"] == "approved" else "#4a5068"
+            })
+
+        # Sort all events by timestamp descending
+        events.sort(key=lambda x: x["timestamp"], reverse=True)
+
+        return {"success": True, "events": events}
+    except Exception as e:
+        return {"success": False, "events": [], "message": str(e)}
+
+
+@app.post("/api/graph/extract")
+async def extract_graph(company: dict = Depends(verify_api_key)):
+    try:
+        from app.entity_extractor import extract_entities_from_chunks, get_chunks_from_pinecone
+        company_id = str(company["_id"])
+        namespace = company.get("pinecone_namespace", "default")
+
+        # Clear existing graph for this company first
+        from app.database import db
+        db.graph_nodes.delete_many({"company_id": company_id})
+        db.graph_relationships.delete_many({"company_id": company_id})
+
+        # Topics to search for entity extraction
+        topics = [
+            "team members employees roles responsibilities",
+            "clients customers accounts SLA contracts",
+            "incidents bugs outages failures errors",
+            "projects features roadmap initiatives",
+            "decisions meetings action items owners"
+        ]
+
+        # Fetch relevant chunks
+        chunks = get_chunks_from_pinecone(
+            index=index,
+            namespace=namespace,
+            embeddings=embeddings,
+            topics=topics
+        )
+
+        if not chunks:
+            return {
+                "success": False,
+                "message": "No chunks found. Sync your tools first."
+            }
+
+        # Extract entities
+        result = extract_entities_from_chunks(
+            chunks=chunks,
+            llm=llm,
+            company_id=company_id
+        )
+
+        return {
+            "success": True,
+            "message": f"Extracted {result['nodes']} entities and {result['relationships']} relationships from your company data.",
+            "nodes": result["nodes"],
+            "relationships": result["relationships"]
+        }
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}

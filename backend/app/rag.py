@@ -13,13 +13,15 @@ llm = None
 
 def init_rag():
     global embeddings, pc_client, index, llm
+    print("DEBUG init_rag: starting...")
     
     # Check if keys are present
     if not config.GEMINI_API_KEY or not config.PINECONE_API_KEY:
-        print("RAG Configuration: API keys missing. Operating in fallback mock mode.")
+        print(f"DEBUG init_rag: missing keys - GEMINI={bool(config.GEMINI_API_KEY)} PINECONE={bool(config.PINECONE_API_KEY)}")
         return False
         
     try:
+        print("DEBUG init_rag: initializing embeddings...")
         # 1. Initialize Gemini Embeddings
         embeddings = GoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
@@ -73,15 +75,15 @@ def query_rag(question: str, history: list = [], namespace: str = "default"):
         # 1. Embed the user question
         query_vector = embeddings.embed_query(question)
         
-        # 2. Search Pinecone for top 4 relevant chunks
+        # 2. Search Pinecone
         search_response = index.query(
             vector=query_vector,
             top_k=4,
             include_metadata=True,
             namespace=namespace
         )
-        
-        # 3. Extract sources and document text
+
+        # 3. Extract context
         context_chunks = []
         sources = set()
         for match in search_response.matches:
@@ -190,6 +192,7 @@ def get_mock_response(question: str):
             "sources": ["System Configuration"]
         }
 async def query_rag_stream(question: str, history: list = [], namespace: str = "default"):
+    print(f"DEBUG stream: namespace={namespace} question={question[:30]}")
     """
     Streaming version of query_rag.
     Yields chunks as they come from Gemini.
@@ -200,6 +203,7 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         rag_enabled = init_rag()
 
     if not rag_enabled or not index or not llm or not embeddings:
+        print(f"DEBUG: using mock - rag_enabled={rag_enabled} index={index is not None} llm={llm is not None} embeddings={embeddings is not None}")
         mock = get_mock_response(question)
         # Stream mock response word by word
         words = mock["answer"].split(" ")
@@ -210,6 +214,8 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
 
     try:
         # 1. Embed question
+        yield {"type": "thinking", "step": "searching", "content": "Searching knowledge base..."}
+        print("DEBUG: yielded searching step")
         query_vector = embeddings.embed_query(question)
 
         # 2. Search Pinecone
@@ -223,13 +229,26 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         # 3. Extract context
         context_chunks = []
         sources = set()
+        source_scores = []
+
         for match in search_response.matches:
             text = match.metadata.get("text", "")
             source = match.metadata.get("source", "Unknown Source")
+            score = round(match.score * 100, 1)
             if text:
                 context_chunks.append(text)
             if source:
                 sources.add(source)
+                source_scores.append({"source": source, "score": score})
+
+        yield {
+            "type": "thinking",
+            "step": "retrieved",
+            "content": f"Found {len(context_chunks)} relevant chunks",
+            "sources": source_scores
+        }
+
+        yield {"type": "thinking", "step": "reasoning", "content": "Reasoning across sources..."}
 
         context_text = "\n\n---\n\n".join(context_chunks)
         
