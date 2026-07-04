@@ -1,13 +1,16 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2 } from 'lucide-react'
+import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network } from 'lucide-react'
+import { tokens, btn, card } from './design'
+import KnowledgeGraph from './components/KnowledgeGraph'
 
 const NAV = [
   { icon: MessageSquare, label: 'Chat' },
   { icon: Zap, label: 'Insights' },
   { icon: Database, label: 'Sources' },
   { icon: Bot, label: 'Agent' },
+  { icon: Network, label: 'Graph' },
   { icon: GitBranch, label: 'Workflows' },
   { icon: Settings, label: 'Settings' },
 ]
@@ -66,6 +69,8 @@ export default function Home() {
   const [backendOnline, setBackendOnline] = useState(true)
   const [alerts, setAlerts] = useState([])
   const [scanning, setScanning] = useState(false)
+  const [showAlerts, setShowAlerts] = useState(false)
+  const [selectedNode, setSelectedNode] = useState(null)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -445,125 +450,58 @@ export default function Home() {
         </div>
       )}
 
-      {alerts.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: !backendOnline ? '33px' : 0,
-          left: 0,
-          right: 0,
-          zIndex: 99,
-        }}>
-          {alerts.map((alert, i) => (
-            <div key={alert._id} style={{
-              padding: '8px 16px',
-              background: alert.severity === 'critical' ? '#2a0a0a' : '#1a1a0a',
-              borderBottom: `0.5px solid ${alert.severity === 'critical' ? '#5a1010' : '#4a4010'}`,
-              color: alert.severity === 'critical' ? '#ef4444' : '#f59e0b',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}>
-              <span>
-                {alert.severity === 'critical' ? '🔴' : '⚠️'} 
-                {' '}<strong>{alert.title}</strong>
-                {' — '}{alert.description}
-              </span>
-              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                <button
-                  onClick={() => {
-                    setActive('Chat')
-                    const queries = {
-                      'client_risk': 'Which clients are at risk right now and what are the recent issues?',
-                      'overdue_actions': 'What action items are pending or overdue and who owns them?',
-                      'tech_risk': 'What are the current technical risks and known system problems?'
-                    }
-                    askQuestion(queries[alert.alert_type] || `Tell me more about: ${alert.title}`)
-                  }}
-                  style={{
-                    padding: '3px 8px',
-                    background: 'transparent',
-                    border: `0.5px solid ${alert.severity === 'critical' ? '#5a1010' : '#4a4010'}`,
-                    borderRadius: '4px',
-                    color: alert.severity === 'critical' ? '#ef4444' : '#f59e0b',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >Investigate →</button>
-                <button
-                  onClick={() => resolveAlert(alert._id)}
-                  style={{
-                    padding: '3px 8px',
-                    background: 'transparent',
-                    border: '0.5px solid #2a2f45',
-                    borderRadius: '4px',
-                    color: '#4a5068',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                  }}
-                >Dismiss</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+
 
       {/* Sidebar */}
       <div style={{
-        width: '216px',
-        borderRight: '0.5px solid #13151f',
+        width: '220px',
+        borderRight: `1px solid ${tokens.border.subtle}`,
         display: 'flex',
         flexDirection: 'column',
-        padding: '0',
         flexShrink: 0,
+        background: tokens.bg.base,
       }}>
         {/* Logo */}
         <div style={{
-          padding: '20px 16px 16px',
-          borderBottom: '0.5px solid #13151f',
+          padding: `${tokens.space[5]} ${tokens.space[4]}`,
+          borderBottom: `1px solid ${tokens.border.subtle}`,
         }}>
           <div style={{
-            fontSize: '15px',
-            fontWeight: '600',
+            fontSize: tokens.font.lg,
+            fontWeight: tokens.weight.semibold,
             color: '#a78bfa',
-            letterSpacing: '-0.3px',
-            marginBottom: '6px',
+            letterSpacing: '-0.4px',
+            marginBottom: tokens.space[1],
           }}>NeuralOS</div>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px',
-            color: '#4a5068',
+            gap: tokens.space[2],
+            fontSize: tokens.font.xs,
+            color: tokens.text.tertiary,
           }}>
             <span style={{
               width: '5px', height: '5px',
               borderRadius: '50%',
-              background: '#10b981',
+              background: tokens.accent.green,
               flexShrink: 0,
-            }} />
+            }}/>
             {company}
           </div>
         </div>
 
-        {/* New Chat */}
-        <div style={{ padding: '12px 10px 8px' }}>
+        {/* New chat */}
+        <div style={{ padding: `${tokens.space[3]} ${tokens.space[2]}` }}>
           <button
             onClick={() => setMessages([])}
             style={{
+              ...btn.secondary,
               width: '100%',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '7px 10px',
-              background: 'transparent',
-              border: '0.5px solid #1e2130',
-              borderRadius: '6px',
-              color: '#6b7280',
-              fontSize: '12px',
-              cursor: 'pointer',
+              gap: tokens.space[2],
+              padding: `${tokens.space[2]} ${tokens.space[3]}`,
+              justifyContent: 'flex-start',
             }}>
             <Plus size={13} />
             New chat
@@ -571,34 +509,29 @@ export default function Home() {
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: '4px 10px', flex: 1 }}>
+        <nav style={{ padding: `0 ${tokens.space[2]}`, flex: 1 }}>
           {NAV.map(({ icon: Icon, label }) => (
             <div
               key={label}
               onClick={() => {
                 setActive(label)
-                if (label === 'Insights' && insights.length === 0) {
-                  fetchInsights()
-                }
-                if (label === 'Workflows') {
-                  fetchPendingActions()
-                }
-                if (label === 'Sources') {
-                  fetchSyncStatus()
-                }
+                if (label === 'Insights' && insights.length === 0) fetchInsights()
+                if (label === 'Workflows') fetchPendingActions()
+                if (label === 'Sources') fetchSyncStatus()
               }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '7px 10px',
-                borderRadius: '6px',
-                marginBottom: '1px',
+                gap: tokens.space[2],
+                padding: `${tokens.space[2]} ${tokens.space[3]}`,
+                borderRadius: tokens.radius.md,
+                marginBottom: '2px',
                 cursor: 'pointer',
-                color: active === label ? '#e2e8f0' : '#4a5068',
-                background: active === label ? '#13151f' : 'transparent',
-                fontSize: '13px',
-                fontWeight: active === label ? '500' : '400',
+                color: active === label ? tokens.text.primary : tokens.text.tertiary,
+                background: active === label ? tokens.bg.overlay : 'transparent',
+                fontSize: tokens.font.base,
+                fontWeight: active === label ? tokens.weight.medium : tokens.weight.normal,
+                transition: 'all 0.1s',
               }}>
               <Icon size={14} strokeWidth={1.5} />
               {label}
@@ -606,23 +539,38 @@ export default function Home() {
           ))}
         </nav>
 
-        {/* Sources indicator */}
+        {/* Connected sources */}
         <div style={{
-          padding: '12px 16px 20px',
-          borderTop: '0.5px solid #13151f',
-          fontSize: '11px',
-          color: '#2a2f45',
-          lineHeight: '1.6',
+          padding: `${tokens.space[3]} ${tokens.space[4]}`,
+          borderTop: `1px solid ${tokens.border.subtle}`,
         }}>
-          <div style={{ color: '#4a5068', marginBottom: '4px' }}>Connected sources</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#10b981' }} />
-            Slack — 2 channels
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#10b981' }} />
-            Notion — 3 pages
-          </div>
+          <div style={{
+            fontSize: tokens.font.xs,
+            color: tokens.text.tertiary,
+            marginBottom: tokens.space[2],
+            fontWeight: tokens.weight.medium,
+          }}>Connected</div>
+          {[
+            { label: 'Slack', channels: '2 channels' },
+            { label: 'Notion', channels: '3 pages' },
+          ].map(s => (
+            <div key={s.label} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: tokens.space[2],
+              marginBottom: '3px',
+              fontSize: tokens.font.xs,
+              color: tokens.text.tertiary,
+            }}>
+              <span style={{
+                width: '4px', height: '4px',
+                borderRadius: '50%',
+                background: tokens.accent.green,
+                flexShrink: 0,
+              }}/>
+              {s.label} — {s.channels}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -636,30 +584,139 @@ export default function Home() {
 
         {/* Header */}
         <div style={{
-          padding: '14px 24px',
-          borderBottom: '0.5px solid #13151f',
+          padding: '12px 24px',
+          borderBottom: `1px solid ${tokens.border.subtle}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexShrink: 0,
         }}>
-          <div style={{ fontSize: '13px', color: '#4a5068', fontWeight: '500' }}>
+          <div style={{
+            fontSize: tokens.font.sm,
+            color: tokens.text.tertiary,
+            fontWeight: tokens.weight.medium,
+            letterSpacing: '0.01em',
+          }}>
             Company Brain
           </div>
-          <div style={{
-            fontSize: '11px',
-            color: '#10b981',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-          }}>
-            <span style={{
-              width: '5px', height: '5px',
-              borderRadius: '50%',
-              background: '#10b981',
-            }} />
-            5 documents indexed
+          <div style={{ display: 'flex', alignItems: 'center', gap: tokens.space[3] }}>
+            {/* Alert bell */}
+            {alerts.length > 0 && (
+              <div
+                onClick={() => setShowAlerts(prev => !prev)}
+                style={{
+                  position: 'relative',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: tokens.radius.md,
+                  background: showAlerts ? tokens.accent.purpleSubtle : 'transparent',
+                }}
+              >
+                <span style={{ fontSize: '14px' }}>🔔</span>
+                <span style={{
+                  position: 'absolute',
+                  top: '0px',
+                  right: '0px',
+                  width: '14px',
+                  height: '14px',
+                  background: alerts.some(a => a.severity === 'critical') ? tokens.accent.red : tokens.accent.amber,
+                  borderRadius: '50%',
+                  fontSize: '9px',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '600',
+                }}>{alerts.length}</span>
+              </div>
+            )}
+            <div style={{
+              fontSize: tokens.font.xs,
+              color: tokens.accent.green,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+            }}>
+              <span style={{
+                width: '5px', height: '5px',
+                borderRadius: '50%',
+                background: tokens.accent.green,
+                display: 'inline-block',
+              }}/>
+              5 documents indexed
+            </div>
           </div>
         </div>
+
+        {/* Alerts dropdown */}
+        {showAlerts && alerts.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '52px',
+            right: '16px',
+            width: '380px',
+            background: tokens.bg.elevated,
+            border: `1px solid ${tokens.border.default}`,
+            borderRadius: tokens.radius.xl,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            zIndex: 200,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${tokens.border.subtle}`,
+              fontSize: tokens.font.sm,
+              color: tokens.text.secondary,
+              fontWeight: tokens.weight.medium,
+            }}>
+              {alerts.length} active alert{alerts.length > 1 ? 's' : ''}
+            </div>
+            {alerts.map((alert, i) => (
+              <div key={alert._id} style={{
+                padding: '12px 16px',
+                borderBottom: i < alerts.length - 1 ? `1px solid ${tokens.border.subtle}` : 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px' }}>
+                    {alert.severity === 'critical' ? '🔴' : '⚠️'}
+                  </span>
+                  <span style={{
+                    fontSize: tokens.font.sm,
+                    color: tokens.text.primary,
+                    fontWeight: tokens.weight.medium,
+                  }}>{alert.title}</span>
+                </div>
+                <div style={{
+                  fontSize: tokens.font.xs,
+                  color: tokens.text.secondary,
+                  lineHeight: '1.5',
+                }}>{alert.description}</div>
+                <div style={{ display: 'flex', gap: tokens.space[2], marginTop: '2px' }}>
+                  <button
+                    onClick={() => {
+                      setShowAlerts(false)
+                      setActive('Chat')
+                      const queries = {
+                        'client_risk': 'Which clients are at risk right now and what are the recent issues?',
+                        'overdue_actions': 'What action items are pending or overdue and who owns them?',
+                        'tech_risk': 'What are the current technical risks and known system problems?'
+                      }
+                      askQuestion(queries[alert.alert_type] || `Tell me more about: ${alert.title}`)
+                    }}
+                    style={btn.primary}
+                  >Investigate →</button>
+                  <button
+                    onClick={() => resolveAlert(alert._id)}
+                    style={btn.secondary}
+                  >Dismiss</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Content Area */}
         <div style={{
@@ -1389,6 +1446,107 @@ export default function Home() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : active === 'Graph' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    letterSpacing: '-0.3px',
+                  }}>Knowledge graph</div>
+                  <div style={{ fontSize: '12px', color: '#4a5068', marginTop: '2px' }}>
+                    Click any node to investigate
+                  </div>
+                </div>
+                {selectedNode && (
+                  <div style={{
+                    padding: '8px 14px',
+                    background: '#0d0f18',
+                    border: '0.5px solid #1e2130',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    color: '#e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}>
+                    <span style={{ color: '#4a5068' }}>Selected:</span>
+                    <strong>{selectedNode.id}</strong>
+                    <span style={{
+                      padding: '2px 6px',
+                      background: selectedNode.color + '20',
+                      border: `0.5px solid ${selectedNode.color}40`,
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      color: selectedNode.color,
+                    }}>{selectedNode.group}</span>
+                    <button
+                      onClick={() => {
+                        setActive('Chat')
+                        askQuestion(`Tell me everything about ${selectedNode.id} — their role, relationships, and recent activity.`)
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        background: '#7c3aed',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: '#fff',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                      }}
+                    >Ask NeuralOS →</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Legend */}
+              <div style={{
+                display: 'flex',
+                gap: '16px',
+                fontSize: '11px',
+                color: '#4a5068',
+              }}>
+                {[
+                  { color: '#a78bfa', label: 'People' },
+                  { color: '#ef4444', label: 'At-risk client' },
+                  { color: '#10b981', label: 'Healthy client' },
+                  { color: '#f59e0b', label: 'Onboarding' },
+                  { color: '#f97316', label: 'Incidents' },
+                  { color: '#3b82f6', label: 'Projects' },
+                ].map(item => (
+                  <div key={item.label} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}>
+                    <span style={{
+                      width: '8px', height: '8px',
+                      borderRadius: '50%',
+                      background: item.color,
+                      flexShrink: 0,
+                    }}/>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Graph */}
+              <div style={{
+                flex: 1,
+                border: '0.5px solid #1e2130',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                minHeight: '400px',
+              }}>
+                <KnowledgeGraph onNodeClick={(node) => setSelectedNode({...node})} />
+              </div>
             </div>
           ) : active === 'Workflows' ? (
             <div>
