@@ -448,9 +448,10 @@ async def sync_slack(
         }
 
 @app.post("/api/graph/seed")
-async def seed_graph():
+async def seed_graph(company: dict = Depends(verify_api_key)):
     try:
-        result = seed_swiftmove_graph()
+        company_id = str(company["_id"])
+        result = seed_swiftmove_graph(company_id)
         if result:
             return {"success": True, "message": "Knowledge graph seeded successfully."}
         else:
@@ -459,9 +460,10 @@ async def seed_graph():
         return {"success": False, "message": str(e)}
 
 @app.get("/api/graph/nodes")
-async def get_graph_nodes():
+async def get_graph_nodes(company: dict = Depends(verify_api_key)):
     try:
-        nodes = get_all_nodes()
+        company_id = str(company["_id"])
+        nodes = get_all_nodes(company_id)
         return {"success": True, "nodes": nodes}
     except Exception as e:
         return {"success": False, "nodes": [], "message": str(e)}
@@ -894,6 +896,70 @@ async def resolve_alert_endpoint(
         return {"success": True, "message": "Alert resolved."}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+@app.get("/api/graph/relationships")
+async def get_graph_relationships_endpoint(company: dict = Depends(verify_api_key)):
+    try:
+        from app.database import get_graph_relationships
+        company_id = str(company["_id"])
+        relationships = get_graph_relationships(company_id)
+        return {"success": True, "relationships": relationships}
+    except Exception as e:
+        return {"success": False, "relationships": [], "message": str(e)}
+
+
+@app.get("/api/graph/data")
+async def get_graph_data(company: dict = Depends(verify_api_key)):
+    try:
+        from app.database import get_graph_nodes, get_graph_relationships
+        company_id = str(company["_id"])
+        
+        nodes = get_graph_nodes(company_id)
+        relationships = get_graph_relationships(company_id)
+
+        # Format for frontend
+        formatted_nodes = []
+        for node in nodes:
+            node_type = node.get("type", "unknown").lower()
+            color_map = {
+                "person": "#a78bfa",
+                "client": "#ef4444",
+                "incident": "#f97316",
+                "project": "#3b82f6"
+            }
+            # Override client color based on health
+            if node_type == "client":
+                health = node.get("properties", {}).get("health", "healthy")
+                color_map["client"] = (
+                    "#ef4444" if health == "at_risk" else
+                    "#f59e0b" if health == "onboarding" else
+                    "#10b981"
+                )
+
+            formatted_nodes.append({
+                "id": node["name"],
+                "group": node_type,
+                "color": color_map.get(node_type, "#8b8fa8"),
+                "val": 3 if node_type == "person" else 4 if node_type == "client" else 2
+            })
+
+        formatted_links = [
+            {
+                "source": rel["from"],
+                "target": rel["to"],
+                "label": rel["relationship"]
+            }
+            for rel in relationships
+        ]
+
+        return {
+            "success": True,
+            "nodes": formatted_nodes,
+            "links": formatted_links
+        }
+    except Exception as e:
+        return {"success": False, "nodes": [], "links": [], "message": str(e)}
 
 
 @app.get("/api/health")
