@@ -744,6 +744,12 @@ async def get_current_user(neuralos_user_token: str = Cookie(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
     return {"success": True, "email": payload["email"], "company_id": payload["company_id"]}
 
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie("neuralos_api_key")
+    response.delete_cookie("neuralos_user_token")
+    return {"success": True, "message": "Logged out."}
+
 class FeedbackRequest(BaseModel):
     question: str
     answer: str

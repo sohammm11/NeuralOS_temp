@@ -1036,3 +1036,220 @@
 2026-07-05 17:17:18,713 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
 2026-07-05 17:17:18,715 - Querying index with top_k=10
 2026-07-05 17:17:19,417 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:19,420 - Querying index with top_k=5
+2026-07-05 17:17:20,146 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:20,148 - Querying index with top_k=8
+2026-07-05 17:17:20,890 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:20,892 - Querying index with top_k=10
+2026-07-05 17:17:21,649 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:21,650 - Querying index with top_k=5
+2026-07-05 17:17:22,348 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:22,350 - Querying index with top_k=8
+2026-07-05 17:17:25,146 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:25,148 - Querying index with top_k=10
+2026-07-05 17:17:25,861 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:25,862 - Querying index with top_k=5
+2026-07-05 17:17:26,579 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:26,582 - Querying index with top_k=8
+2026-07-05 17:17:27,310 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:27,312 - Querying index with top_k=10
+2026-07-05 17:17:28,093 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:28,096 - Querying index with top_k=5
+2026-07-05 17:17:28,833 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:28,836 - Querying index with top_k=8
+2026-07-05 17:17:29,534 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:29,536 - Querying index with top_k=10
+2026-07-05 17:17:30,225 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:30,226 - Querying index with top_k=5
+2026-07-05 17:17:30,889 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:30,893 - Querying index with top_k=8
+2026-07-05 17:17:31,584 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:31,587 - Querying index with top_k=10
+2026-07-05 17:17:32,281 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:32,283 - Querying index with top_k=5
+2026-07-05 17:17:32,979 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:32,981 - Querying index with top_k=8
+2026-07-05 17:17:33,692 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:33,698 - Querying index with top_k=10
+2026-07-05 17:17:34,433 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:34,434 - Querying index with top_k=5
+2026-07-05 17:17:35,151 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:35,153 - Querying index with top_k=8
+2026-07-05 17:17:35,840 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:35,842 - Querying index with top_k=10
+2026-07-05 17:17:36,539 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:36,541 - Querying index with top_k=5
+2026-07-05 17:17:37,227 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:37,229 - Querying index with top_k=8
+2026-07-05 17:17:48,898 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:48,900 - Querying index with top_k=10
+2026-07-05 17:17:50,216 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:50,218 - Querying index with top_k=5
+2026-07-05 17:17:50,866 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:50,868 - Querying index with top_k=8
+2026-07-05 17:17:51,550 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:51,552 - Querying index with top_k=10
+2026-07-05 17:17:52,261 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:52,263 - Querying index with top_k=5
+2026-07-05 17:17:53,045 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:53,047 - Querying index with top_k=8
+2026-07-05 17:17:53,715 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:53,717 - Querying index with top_k=10
+2026-07-05 17:17:54,430 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:54,432 - Querying index with top_k=5
+2026-07-05 17:17:55,109 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:55,111 - Querying index with top_k=8
+2026-07-05 17:17:55,796 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:55,797 - Querying index with top_k=10
+2026-07-05 17:17:56,464 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:56,466 - Querying index with top_k=5
+2026-07-05 17:17:57,111 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:57,112 - Querying index with top_k=8
+2026-07-05 17:17:57,802 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:57,804 - Querying index with top_k=10
+2026-07-05 17:17:58,480 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:58,481 - Querying index with top_k=5
+2026-07-05 17:17:59,189 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:59,191 - Querying index with top_k=8
+2026-07-05 17:17:59,889 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:17:59,892 - Querying index with top_k=10
+2026-07-05 17:18:00,538 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:18:00,540 - Querying index with top_k=5
+2026-07-05 17:18:01,203 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:18:01,204 - Querying index with top_k=8
+2026-07-05 17:21:15,926 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:15,929 - Querying index with top_k=10
+2026-07-05 17:21:17,208 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:17,212 - Querying index with top_k=5
+2026-07-05 17:21:17,930 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:17,934 - Querying index with top_k=8
+2026-07-05 17:21:18,614 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:18,618 - Querying index with top_k=10
+2026-07-05 17:21:19,301 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:19,303 - Querying index with top_k=5
+2026-07-05 17:21:19,968 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:19,969 - Querying index with top_k=8
+2026-07-05 17:21:20,645 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:20,647 - Querying index with top_k=10
+2026-07-05 17:21:21,289 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:21,291 - Querying index with top_k=5
+2026-07-05 17:21:21,965 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:21,970 - Querying index with top_k=8
+2026-07-05 17:21:22,660 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:22,661 - Querying index with top_k=10
+2026-07-05 17:21:23,362 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:23,363 - Querying index with top_k=5
+2026-07-05 17:21:23,995 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:23,998 - Querying index with top_k=8
+2026-07-05 17:21:24,639 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:24,643 - Querying index with top_k=10
+2026-07-05 17:21:25,343 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:25,345 - Querying index with top_k=5
+2026-07-05 17:21:26,004 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:26,007 - Querying index with top_k=8
+2026-07-05 17:21:26,650 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:26,653 - Querying index with top_k=10
+2026-07-05 17:21:27,314 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:27,317 - Querying index with top_k=5
+2026-07-05 17:21:27,959 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 17:21:27,963 - Querying index with top_k=8
+2026-07-05 17:27:06,818 - Scheduler has been shut down
+2026-07-05 17:27:15,629 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-05 17:27:15,631 - Added job "sync_all_companies" to job store "default"
+2026-07-05 17:27:15,631 - Scheduler started
+2026-07-05 18:04:23,259 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:23,282 - Querying index with top_k=4
+2026-07-05 18:04:24,489 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:04:26,580 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:04:32,088 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:32,138 - Querying index with top_k=4
+2026-07-05 18:04:34,554 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:34,558 - Querying index with top_k=5
+2026-07-05 18:04:35,231 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:35,234 - Querying index with top_k=5
+2026-07-05 18:04:35,918 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:35,968 - Querying index with top_k=5
+2026-07-05 18:04:36,666 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:36,714 - Querying index with top_k=5
+2026-07-05 18:04:37,385 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:37,388 - Querying index with top_k=5
+2026-07-05 18:04:38,418 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:04:38,465 - Querying index with top_k=4
+2026-07-05 18:04:38,715 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:04:41,624 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:04:58,304 - file_cache is only supported with oauth2client<4.0.0
+2026-07-05 18:05:06,616 - Describing index 'neuralos'
+2026-07-05 18:05:07,745 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-05 18:05:08,548 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-05 18:05:08,645 - file_cache is only supported with oauth2client<4.0.0
+2026-07-05 18:05:08,651 - file_cache is only supported with oauth2client<4.0.0
+2026-07-05 18:05:18,408 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:05:18,606 - Upserting 11 vectors into namespace 'my_company'
+2026-07-05 18:05:22,084 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:05:22,237 - Upserting 20 vectors into namespace 'swiftmove_logistics'
+2026-07-05 18:05:33,160 - Describing index 'neuralos'
+2026-07-05 18:05:34,074 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-05 18:05:34,760 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-05 18:05:36,340 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:05:36,368 - Upserting 9 vectors into namespace 'my_company'
+2026-07-05 18:05:49,416 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-05 18:05:49,739 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:50,072 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:51,122 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:51,681 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:52,028 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:52,428 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-05 18:05:54,482 - Describing index 'neuralos'
+2026-07-05 18:05:55,559 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-05 18:05:56,230 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-05 18:05:57,768 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:05:57,797 - Upserting 12 vectors into namespace 'my_company'
+2026-07-05 18:06:05,399 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:06:05,401 - Querying index with top_k=5
+2026-07-05 18:06:06,830 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:06:06,832 - Querying index with top_k=5
+2026-07-05 18:06:07,553 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:06:07,555 - Querying index with top_k=5
+2026-07-05 18:06:08,204 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:06:08,206 - Querying index with top_k=5
+2026-07-05 18:06:08,914 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:06:08,915 - Querying index with top_k=5
+2026-07-05 18:06:09,140 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:06:19,120 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:07:18,270 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:18,317 - Querying index with top_k=10
+2026-07-05 18:07:19,726 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:19,729 - Querying index with top_k=5
+2026-07-05 18:07:20,475 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:20,478 - Querying index with top_k=8
+2026-07-05 18:07:30,708 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:30,711 - Querying index with top_k=10
+2026-07-05 18:07:32,019 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:32,021 - Querying index with top_k=5
+2026-07-05 18:07:32,772 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:07:32,775 - Querying index with top_k=8
+2026-07-05 18:14:22,377 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:22,424 - Querying index with top_k=4
+2026-07-05 18:14:23,383 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:14:24,806 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:14:25,492 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:25,495 - Querying index with top_k=10
+2026-07-05 18:14:26,247 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:26,250 - Querying index with top_k=5
+2026-07-05 18:14:26,939 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:26,942 - Querying index with top_k=8
+2026-07-05 18:14:30,426 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:30,429 - Querying index with top_k=4
+2026-07-05 18:14:36,132 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:36,135 - Querying index with top_k=4
+2026-07-05 18:14:37,084 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:14:39,647 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:14:45,179 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:45,183 - Querying index with top_k=4
+2026-07-05 18:14:46,053 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:14:47,711 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:14:53,322 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:53,324 - Querying index with top_k=4
+2026-07-05 18:14:59,666 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:14:59,669 - Querying index with top_k=4
+2026-07-05 18:15:00,623 - AFC is enabled with max remote calls: 10.

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network, Clock } from 'lucide-react'
 import { tokens, btn, card } from './design'
+import { useRouter } from 'next/navigation'
 import KnowledgeGraph from './components/KnowledgeGraph'
 
 const NAV = [
@@ -24,6 +25,7 @@ const SUGGESTIONS = [
 ]
 
 export default function Home() {
+  const router = useRouter()
   async function fetchWithRetry(url, options, retries = 1) {
     try {
       return await fetch(url, options)
@@ -82,20 +84,20 @@ export default function Home() {
   const [schedulerStatus, setSchedulerStatus] = useState(null)
   const [triggeringSyncAll, setTriggeringSyncAll] = useState(false)
   const [syncAllMessage, setSyncAllMessage] = useState('')
+  const [scanMessage, setScanMessage] = useState('')
   const bottomRef = useRef(null)
+  const intervalsRef = useRef([])
 
   useEffect(() => {
     const savedCompany = localStorage.getItem('neuralos_company')
     if (!savedCompany) {
-      window.location.href = '/onboarding'
-    } else {
-      setCompany(savedCompany)
+      window.location.replace('/onboarding')
+      return
     }
+    setCompany(savedCompany)
     fetchAlerts()
     fetchSyncStatus()
     fetchSchedulerStatus()
-    const interval = setInterval(fetchAlerts, 60000)
-    return () => clearInterval(interval)
   }, [])
 
   async function fetchTimeline() {
@@ -164,11 +166,18 @@ export default function Home() {
     setBackendOnline(true)  // reset banner immediately
   }
 
-  useEffect(() => {
-    checkBackendHealth()
-    const interval = setInterval(checkBackendHealth, 15000)
-    return () => clearInterval(interval)
-  }, [])
+  async function handleLogout() {
+    try {
+      await fetch('http://localhost:8000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (err) {}
+    localStorage.clear()
+    // Stop all intervals before redirecting
+    window.location.replace('/onboarding')
+  }
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -491,13 +500,24 @@ export default function Home() {
 
   async function runScan() {
     setScanning(true)
+    setScanMessage('')
     try {
-      await fetch('http://localhost:8000/api/anomaly/scan', {
+      const res = await fetch('http://localhost:8000/api/anomaly/scan', {
         method: 'POST',
         credentials: 'include'
       })
-      await fetchAlerts()
-    } catch (err) {}
+      const data = await res.json()
+      if (data.success) {
+        setScanMessage(
+          data.alerts_found > 0
+            ? `⚠️ ${data.alerts_found} anomaly${data.alerts_found > 1 ? 'ies' : ''} detected — check the 🔔 bell icon above.`
+            : '✓ Scan complete. No anomalies detected.'
+        )
+        await fetchAlerts()
+      }
+    } catch (err) {
+      setScanMessage('Scan failed. Is the backend running?')
+    }
     setScanning(false)
   }
 
@@ -857,6 +877,16 @@ export default function Home() {
         {scanning ? 'Scanning...' : '⚡ Run anomaly scan'}
       </button>
     </div>
+    {scanMessage && (
+      <div style={{
+        fontSize: '12px',
+        color: scanMessage.startsWith('⚠️') ? '#f59e0b' : '#10b981',
+        marginTop: '8px',
+        textAlign: 'right',
+      }}>
+        {scanMessage}
+      </div>
+    )}
     <div style={{
       fontSize: '12px',
       color: '#4a5068',
@@ -2068,6 +2098,27 @@ export default function Home() {
                 <div style={{ fontSize: '13px', color: '#e2e8f0' }}>
                   {[...new Set(syncStatus.map(s => s.source))].join(', ') || 'None synced yet'}
                 </div>
+              </div>
+
+              <div style={{
+                marginTop: '24px',
+                paddingTop: '16px',
+                borderTop: '0.5px solid #1e2130',
+              }}>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: '0.5px solid #3a1010',
+                    borderRadius: '6px',
+                    color: '#ef4444',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Sign out
+                </button>
               </div>
             </div>
           ) : (
