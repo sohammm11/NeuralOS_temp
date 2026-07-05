@@ -1253,3 +1253,28 @@
 2026-07-05 18:14:59,666 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
 2026-07-05 18:14:59,669 - Querying index with top_k=4
 2026-07-05 18:15:00,623 - AFC is enabled with max remote calls: 10.
+2026-07-05 18:15:02,886 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-05 18:21:43,904 - Scheduler has been shut down
+2026-07-05 18:21:54,573 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-05 18:21:54,575 - Added job "sync_all_companies" to job store "default"
+2026-07-05 18:21:54,575 - Scheduler started
+2026-07-05 18:21:55,850 - Scheduler has been shut down
+2026-07-05 18:22:03,460 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-05 18:22:03,506 - Added job "sync_all_companies" to job store "default"
+2026-07-05 18:22:03,506 - Scheduler started
+2026-07-05 18:23:12,987 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-05 18:23:13,338 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:14,374 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:14,682 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:15,208 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:15,531 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:15,904 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-05 18:23:16,904 - Describing index 'neuralos'
+2026-07-05 18:23:18,158 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-05 18:23:18,626 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-05 18:23:18,626 - Deleting vectors from namespace 'my_company'
+2026-07-05 18:23:21,795 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-05 18:23:21,824 - Upserting 12 vectors into namespace 'my_company'
+2026-07-05 18:26:02,634 - Scheduler has been shut down
+2026-07-05 18:26:09,596 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-05 18:26:09,597 - Added job "sync_all_companies" to job store "default"

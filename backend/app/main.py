@@ -335,6 +335,7 @@ async def sync_notion(
         pc = Pinecone(api_key=pinecone_key)
         index = pc.Index(request.pinecone_index)
 
+
         # 4. Upsert in batches
         batch_size = 50
         total_upserted = 0
@@ -433,6 +434,7 @@ async def sync_slack(
 
         pc = Pinecone(api_key=pinecone_key)
         index = pc.Index(request.pinecone_index)
+
 
         # 4. Upsert in batches
         batch_size = 50
@@ -566,8 +568,10 @@ async def run_workflow(request: WorkflowRequest):
         }
 
 @app.post("/api/sync/gmail")
-async def sync_gmail():
+async def sync_gmail(company: dict = Depends(verify_api_key)):
     try:
+        company_id = str(company["_id"])
+        namespace = company.get("pinecone_namespace", "default")
         # 1. Fetch emails
         emails = get_gmail_messages(max_emails=10)
 
@@ -593,6 +597,7 @@ async def sync_gmail():
         pc = Pinecone(api_key=config.PINECONE_API_KEY)
         index = pc.Index(config.PINECONE_INDEX_NAME)
 
+
         # 4. Upsert in batches
         batch_size = 50
         total_upserted = 0
@@ -615,8 +620,11 @@ async def sync_gmail():
                     }
                 })
 
-            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
+            index.upsert(vectors=upsert_data, namespace=namespace)
             total_upserted += len(batch)
+
+        if db_enabled:
+            log_sync(company_id, "gmail", len(emails), total_upserted)
 
         return {
             "success": True,
@@ -647,6 +655,8 @@ async def sync_drive(company: dict = Depends(verify_api_key)):
             output_dimensionality=768
         )
 
+
+        # 4. Upsert in batches
         batch_size = 50
         total_upserted = 0
 
