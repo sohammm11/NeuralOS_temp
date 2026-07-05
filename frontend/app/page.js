@@ -79,6 +79,9 @@ export default function Home() {
   const [extracting, setExtracting] = useState(false)
   const [extractMessage, setExtractMessage] = useState('')
   const [isExtracting, setIsExtracting] = useState(false)
+  const [schedulerStatus, setSchedulerStatus] = useState(null)
+  const [triggeringSyncAll, setTriggeringSyncAll] = useState(false)
+  const [syncAllMessage, setSyncAllMessage] = useState('')
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -90,6 +93,7 @@ export default function Home() {
     }
     fetchAlerts()
     fetchSyncStatus()
+    fetchSchedulerStatus()
     const interval = setInterval(fetchAlerts, 60000)
     return () => clearInterval(interval)
   }, [])
@@ -104,6 +108,38 @@ export default function Home() {
       setTimelineEvents(data.events || [])
     } catch (err) {}
     setTimelineLoading(false)
+  }
+
+  async function fetchSchedulerStatus() {
+    try {
+      const res = await fetch('http://localhost:8000/api/scheduler/status', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setSchedulerStatus(data)
+    } catch (err) {}
+  }
+
+  async function triggerManualSync() {
+    setTriggeringSyncAll(true)
+    setSyncAllMessage('')
+    try {
+      const res = await fetch('http://localhost:8000/api/scheduler/trigger', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSyncAllMessage('All sources synced successfully.')
+        fetchSyncStatus()
+        fetchAlerts()
+      } else {
+        setSyncAllMessage('Sync failed.')
+      }
+    } catch (err) {
+      setSyncAllMessage('Could not reach backend.')
+    }
+    setTriggeringSyncAll(false)
   }
 
   async function extractGraph() {
@@ -571,7 +607,10 @@ export default function Home() {
                 setActive(label)
                 if (label === 'Insights' && insights.length === 0) fetchInsights()
                 if (label === 'Workflows') fetchPendingActions()
-                if (label === 'Sources') fetchSyncStatus()
+                if (label === 'Sources') {
+                  fetchSyncStatus()
+                  fetchSchedulerStatus()
+                }
                 if (label === 'Timeline') fetchTimeline()
               }}
               style={{
@@ -949,6 +988,69 @@ export default function Home() {
                 color: '#4a5068',
                 marginBottom: '24px',
               }}>NeuralOS is reading from these sources in real time.</div>
+
+              {/* Auto-sync status */}
+              <div style={{
+                padding: '12px 16px',
+                background: '#0d0f18',
+                border: '0.5px solid #1e2130',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    color: '#e2e8f0',
+                    marginBottom: '3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    <span style={{
+                      width: '6px', height: '6px',
+                      borderRadius: '50%',
+                      background: schedulerStatus?.running ? '#10b981' : '#4a5068',
+                      display: 'inline-block',
+                    }}/>
+                    Auto-sync {schedulerStatus?.running ? 'active' : 'inactive'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#4a5068' }}>
+                    {schedulerStatus?.next_sync
+                      ? `Next sync: ${new Date(schedulerStatus.next_sync).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                      : 'Syncs every hour automatically'}
+                  </div>
+                </div>
+                <button
+                  onClick={triggerManualSync}
+                  disabled={triggeringSyncAll}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'transparent',
+                    border: '0.5px solid #1e2130',
+                    borderRadius: '5px',
+                    color: triggeringSyncAll ? '#4a5068' : '#a78bfa',
+                    fontSize: '11px',
+                    cursor: triggeringSyncAll ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {triggeringSyncAll ? 'Syncing...' : '↻ Sync now'}
+                </button>
+              </div>
+              {syncAllMessage && (
+                <div style={{
+                  fontSize: '11px',
+                  color: '#10b981',
+                  marginBottom: '10px',
+                  marginTop: '-10px',
+                }}>
+                  {syncAllMessage}
+                </div>
+              )}
 
               {/* Notion Connect */}
               <div style={{

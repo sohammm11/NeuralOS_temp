@@ -25,6 +25,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
 from datetime import datetime
+from app.scheduler import start_scheduler, stop_scheduler
 
 # Rate limiting
 limiter = Limiter(key_func=get_remote_address)
@@ -51,6 +52,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    start_scheduler(index, embeddings, llm)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    stop_scheduler()
 
 # Audit Logging setup
 logging.basicConfig(
@@ -281,6 +290,17 @@ async def sync_notion(
     company: dict = Depends(verify_api_key)
 ):
     try:
+        company_id = str(company["_id"])
+        namespace = company.get("pinecone_namespace", "default")
+        
+        # Store token for auto-sync
+        if request.notion_token and request.notion_token != "neuralos_managed":
+            from app.database import db
+            db.companies.update_one(
+                {"_id": company["_id"]},
+                {"$set": {"tokens.notion_token": request.notion_token}}
+            )
+
         # Use backend config keys if managed
         gemini_key = request.gemini_key
         pinecone_key = request.pinecone_key
@@ -335,12 +355,12 @@ async def sync_notion(
                     }
                 })
 
-            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
+            index.upsert(vectors=upsert_data, namespace=namespace)
             total_upserted += len(batch)
 
         if db_enabled:
             log_sync(
-                company_id="demo",
+                company_id=company_id,
                 source="notion",
                 items_synced=len(pages),
                 chunks_indexed=total_upserted
@@ -369,6 +389,17 @@ async def sync_slack(
     company: dict = Depends(verify_api_key)
 ):
     try:
+        company_id = str(company["_id"])
+        namespace = company.get("pinecone_namespace", "default")
+        
+        # Store token for auto-sync
+        if request.slack_token and request.slack_token != "neuralos_managed":
+            from app.database import db
+            db.companies.update_one(
+                {"_id": company["_id"]},
+                {"$set": {"tokens.slack_token": request.slack_token}}
+            )
+
         # Use backend keys if managed
         gemini_key = request.gemini_key
         pinecone_key = request.pinecone_key
@@ -423,12 +454,12 @@ async def sync_slack(
                     }
                 })
 
-            index.upsert(vectors=upsert_data, namespace="swiftmove_logistics")
+            index.upsert(vectors=upsert_data, namespace=namespace)
             total_upserted += len(batch)
 
         if db_enabled:
             log_sync(
-                company_id="demo",
+                company_id=company_id,
                 source="slack",
                 items_synced=len(channels),
                 chunks_indexed=total_upserted
@@ -1091,6 +1122,33 @@ async def extract_graph(company: dict = Depends(verify_api_key)):
             "relationships": result["relationships"]
         }
 
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.get("/api/scheduler/status")
+async def scheduler_status(company: dict = Depends(verify_api_key)):
+    try:
+        from app.scheduler import scheduler
+        job = scheduler.get_job("auto_sync")
+        if job and job.next_run_time:
+            next_run = job.next_run_time.isoformat()
+        else:
+            next_run = None
+        return {
+            "success": True,
+            "running": scheduler.running,
+            "next_sync": next_run
+        }
+    except Exception as e:
+        return {"success": False, "running": False, "next_sync": None}
+
+@app.post("/api/scheduler/trigger")
+async def trigger_sync(company: dict = Depends(verify_api_key)):
+    try:
+        from app.scheduler import sync_all_companies
+        await sync_all_companies(index, embeddings, llm)
+        return {"success": True, "message": "Manual sync triggered successfully."}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
