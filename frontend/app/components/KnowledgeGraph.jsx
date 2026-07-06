@@ -104,10 +104,20 @@ const KnowledgeGraph = memo(function KnowledgeGraph({ onNodeClick }) {
         linkDirectionalParticles={2}
         linkDirectionalParticleSpeed={0.003}
         linkDirectionalParticleColor={() => 'rgba(124,58,237,0.6)'}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.3}
+        d3Force={{
+          charge: { strength: -300 },
+          link: { distance: 80 },
+          collision: { radius: 40 }
+        }}
+        warmupTicks={100}
+        cooldownTicks={200}
         nodeCanvasObject={(node, ctx, globalScale) => {
           const label = node.id
-          const fontSize = 11 / globalScale
+          const fontSize = Math.max(10 / globalScale, 8)
           ctx.font = `${fontSize}px Inter, sans-serif`
+          const textWidth = ctx.measureText(label).width
 
           // Node circle
           ctx.beginPath()
@@ -115,20 +125,29 @@ const KnowledgeGraph = memo(function KnowledgeGraph({ onNodeClick }) {
           ctx.fillStyle = node.color
           ctx.fill()
 
-          // Glow effect
+          // Glow
           ctx.beginPath()
           ctx.arc(node.x, node.y, node.val * 2 + 3, 0, 2 * Math.PI)
           ctx.fillStyle = node.color + '20'
           ctx.fill()
 
-          // Label
+          // Label background (prevents overlap readability issues)
+          const labelY = node.y + node.val * 2 + fontSize + 2
+          ctx.fillStyle = 'rgba(8,9,14,0.8)'
+          ctx.fillRect(
+            node.x - textWidth / 2 - 2,
+            labelY - fontSize,
+            textWidth + 4,
+            fontSize + 2
+          )
+
+          // Label text
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillStyle = 'rgba(240,240,245,0.9)'
-          ctx.fillText(label, node.x, node.y + node.val * 2 + fontSize)
+          ctx.fillStyle = 'rgba(240,240,245,0.95)'
+          ctx.fillText(label, node.x, labelY - fontSize / 2)
         }}
         onNodeClick={handleNodeClick}
-        cooldownTicks={100}
         width={containerRef.current?.offsetWidth || 800}
         height={containerRef.current?.offsetHeight || 500}
       />

@@ -105,7 +105,7 @@ def query_rag(question: str, history: list = [], namespace: str = "default"):
         
         if not context_text:
             return {
-                "answer": "I couldn't find any relevant documents in the knowledge base. Please ingest some content first using scripts/ingest.py.",
+                "answer": "No relevant information found. Try syncing your tools in the Sources tab to add more company knowledge.",
                 "sources": []
             }
             

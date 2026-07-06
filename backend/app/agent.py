@@ -129,7 +129,11 @@ async def execute_agent(
         elif step_type == "CREATE_TASK" and notion_token:
             try:
                 # Extract task details from context
+                from datetime import datetime
+                today = datetime.now().strftime("%Y-%m-%d")
+
                 task_prompt = (
+                    f"Today's date is {today}.\n"
                     f"Based on this instruction: '{step_instruction}'\n"
                     f"And this context: {context_so_far[:1000]}\n"
                     f"What is the task title and who should it be assigned to?\n"

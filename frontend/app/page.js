@@ -193,11 +193,15 @@ export default function Home() {
     setMessages(prev => [...prev, { role: 'ai', text: '', sources: [] }])
 
     // Check if it's an action
-    const actionWords = ['create task', 'add task', 'create a task',
-                         'create follow up', 'add follow up', 'remind', 
-                         'schedule', 'send message', 'send a message',
-                         'message to', 'notify', 'ping', 'send slack',
-                         'tell the team']
+    const actionWords = [
+      'create task', 'add task', 'create a task',
+      'create follow up', 'add follow up', 'remind',
+      'schedule', 'send message', 'send a message',
+      'message to', 'notify', 'ping', 'send slack',
+      'tell the team', 'create a notion', 'create notion',
+      'create a doc', 'create doc', 'add to notion',
+      'write a doc', 'make a doc', 'create a page'
+    ]
     const isAction = actionWords.some(w => userMessage.toLowerCase().includes(w))
 
     if (isAction) {
@@ -440,7 +444,8 @@ export default function Home() {
               ...a,
               processing: false,
               resolved: decision,
-              resultMessage: data.message || (decision === 'approve' ? 'Action completed.' : 'Action rejected.')
+              resultMessage: data.message + (data.url ? ' — View in Notion' : ''),
+              url: data.url
             }
           : a
       ))
@@ -531,6 +536,29 @@ export default function Home() {
       })
       setAlerts(prev => prev.filter(a => a._id !== alertId))
     } catch (err) {}
+  }
+
+  function formatEventDescription(event) {
+    if (event.type === 'action') {
+      try {
+        const details = typeof event.description === 'string' 
+          ? event.description 
+          : JSON.stringify(event.description)
+        
+        if (details.includes('title')) {
+          const titleMatch = details.match(/title['":\s]+([^'"]+)/)
+          const assigneeMatch = details.match(/assignee['":\s]+([^'"},]+)/)
+          const title = titleMatch ? titleMatch[1].replace(/[\\'"]/g, '').trim() : 'Untitled'
+          const assignee = assigneeMatch ? assigneeMatch[1].replace(/[\\'"]/g, '').trim() : 'Unassigned'
+          return `Title: ${title} · Assignee: ${assignee}`
+        }
+        if (details.includes('message')) {
+          const msgMatch = details.match(/message['":\s]+([^'"]{0,80})/)
+          return msgMatch ? `Message: ${msgMatch[1].trim()}` : 'Slack message'
+        }
+      } catch (e) {}
+    }
+    return event.description?.slice(0, 100) || ''
   }
 
   return (
@@ -907,10 +935,20 @@ export default function Home() {
             background: '#0d0f18',
             border: '0.5px solid #1e2130',
             borderRadius: '8px',
-            color: '#2a2f45',
-            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
           }}>
-            Analyzing company data...
+            <div style={{
+              width: '6px', height: '6px',
+              borderRadius: '50%',
+              background: '#7c3aed',
+              animation: 'blink 1s infinite',
+              flexShrink: 0,
+            }}/>
+            <div style={{ fontSize: '12px', color: '#4a5068' }}>
+              Analyzing company data...
+            </div>
           </div>
         ))}
       </div>
@@ -920,7 +958,15 @@ export default function Home() {
         flexDirection: 'column',
         gap: '12px',
       }}>
-        {insights.map((insight, i) => (
+        {insights
+          .filter(insight => 
+            insight.answer && 
+            !insight.answer.toLowerCase().includes('scripts/ingest') &&
+            !insight.answer.toLowerCase().includes('does not provide') &&
+            !insight.answer.toLowerCase().includes('no information') &&
+            insight.answer.length > 50
+          )
+          .map((insight, i) => (
           <div key={i} style={{
             padding: '16px',
             background: '#0d0f18',
@@ -1746,7 +1792,7 @@ export default function Home() {
                             fontSize: '11px',
                             color: '#4a5068',
                             lineHeight: '1.5',
-                          }}>{event.description}</div>
+                          }}>{formatEventDescription(event)}</div>
                           <div style={{
                             marginTop: '6px',
                             fontSize: '10px',
@@ -1986,6 +2032,16 @@ export default function Home() {
                         }}>
                           {action.resolved === 'approve' ? '✓' : action.resolved === 'error' ? '✕' : '–'}
                           {' '}{action.resultMessage}
+                          {action.url && (
+                            <a 
+                              href={action.url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              style={{ color: '#7c3aed', marginLeft: '8px', fontSize: '11px' }}
+                            >
+                              Open →
+                            </a>
+                          )}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: '8px' }}>

@@ -1278,3 +1278,164 @@
 2026-07-05 18:26:02,634 - Scheduler has been shut down
 2026-07-05 18:26:09,596 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
 2026-07-05 18:26:09,597 - Added job "sync_all_companies" to job store "default"
+2026-07-05 18:26:09,598 - Scheduler started
+2026-07-06 12:42:55,659 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:42:55,677 - Querying index with top_k=4
+2026-07-06 12:42:57,291 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:42:59,760 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:43:05,628 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:43:05,633 - Querying index with top_k=4
+2026-07-06 12:43:11,999 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:43:12,002 - Querying index with top_k=4
+2026-07-06 12:43:12,939 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:43:15,642 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:43:25,734 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=create a notion doc with title of our company and 
+2026-07-06 12:43:26,280 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:43:26,282 - Querying index with top_k=4
+2026-07-06 12:43:27,308 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:43:28,879 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:43:43,683 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=create a notion doc with title of our company and 
+2026-07-06 12:43:44,559 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:43:44,563 - Querying index with top_k=5
+2026-07-06 12:43:45,539 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:43:48,353 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:49:26,447 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 12:49:27,040 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:49:27,043 - Querying index with top_k=5
+2026-07-06 12:49:28,080 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:49:28,991 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:51:36,170 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 12:51:36,709 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:51:36,712 - Querying index with top_k=5
+2026-07-06 12:51:39,256 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:51:40,416 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:53:38,776 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 12:53:39,383 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:53:39,386 - Querying index with top_k=5
+2026-07-06 12:53:40,382 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:53:41,676 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 12:58:16,388 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 12:58:16,949 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 12:58:16,952 - Querying index with top_k=5
+2026-07-06 12:58:17,955 - AFC is enabled with max remote calls: 10.
+2026-07-06 12:58:19,597 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:02:49,073 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:02:49,075 - Querying index with top_k=4
+2026-07-06 13:02:50,028 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:02:51,934 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:02:57,427 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:02:57,430 - Querying index with top_k=4
+2026-07-06 13:03:03,838 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:03:03,840 - Querying index with top_k=4
+2026-07-06 13:03:05,327 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:03:07,684 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:03:16,993 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 401 Unauthorized"
+2026-07-06 13:03:16,995 - request fail: code=APIErrorCode.Unauthorized, message=API token is invalid., attempt=0, request_id=dc005019-385a-4e70-8ea4-eda0226a337e
+2026-07-06 13:03:46,571 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-06 13:03:46,948 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:47,352 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:47,702 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:48,107 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:48,496 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:48,908 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-06 13:03:50,431 - Describing index 'neuralos'
+2026-07-06 13:03:51,427 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-06 13:03:51,901 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-06 13:03:53,550 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:03:53,577 - Upserting 12 vectors into namespace 'my_company'
+2026-07-06 13:04:01,679 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 13:04:02,227 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:04:02,229 - Querying index with top_k=5
+2026-07-06 13:04:03,222 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:04:05,001 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:04:37,484 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-06 13:04:37,819 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:38,123 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:38,436 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:39,582 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:39,966 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:40,352 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:41,849 - Describing index 'neuralos'
+2026-07-06 13:04:42,940 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-06 13:04:43,466 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-06 13:04:45,079 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:04:45,163 - Upserting 12 vectors into namespace 'my_company'
+2026-07-06 13:04:57,382 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-06 13:04:57,742 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:58,059 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:58,652 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:59,069 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-06 13:04:59,578 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-06 13:05:00,003 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-06 13:05:01,396 - Describing index 'neuralos'
+2026-07-06 13:05:02,304 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-06 13:05:02,792 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-06 13:05:04,382 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:05:04,413 - Upserting 12 vectors into namespace 'my_company'
+2026-07-06 13:05:34,584 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 13:05:35,052 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:05:35,054 - Querying index with top_k=5
+2026-07-06 13:05:35,935 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:05:37,611 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:05:37,631 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:05:41,584 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:07:09,237 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-06 13:07:09,721 - HTTP Request: POST https://api.notion.com/v1/pages "HTTP/1.1 200 OK"
+2026-07-06 13:07:09,733 - ACTION=ACTION_APPROVED | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=type=CREATE_TASK
+2026-07-06 13:08:05,419 - ACTION=AGENT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=instruction=Create a Notion doc titled "SwiftMove Logistics" w
+2026-07-06 13:08:05,942 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:08:05,963 - Querying index with top_k=5
+2026-07-06 13:08:06,872 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:08:09,309 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:08:09,389 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:08:12,609 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:08:23,894 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-06 13:08:24,339 - HTTP Request: POST https://api.notion.com/v1/pages "HTTP/1.1 200 OK"
+2026-07-06 13:08:24,350 - ACTION=ACTION_APPROVED | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=type=CREATE_TASK
+2026-07-06 13:10:13,706 - Scheduler has been shut down
+2026-07-06 13:10:25,973 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-06 13:10:25,977 - Added job "sync_all_companies" to job store "default"
+2026-07-06 13:10:25,977 - Scheduler started
+2026-07-06 13:11:12,924 - Scheduler has been shut down
+2026-07-06 13:11:21,795 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-06 13:11:21,828 - Added job "sync_all_companies" to job store "default"
+2026-07-06 13:11:21,828 - Scheduler started
+2026-07-06 13:12:28,767 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=Tell me about this event: Agent action approved: C
+2026-07-06 13:12:29,337 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:12:29,340 - Querying index with top_k=4
+2026-07-06 13:12:30,394 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:12:32,211 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:14:54,169 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:14:54,172 - Querying index with top_k=4
+2026-07-06 13:14:55,074 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:14:56,980 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:15:02,522 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:15:02,524 - Querying index with top_k=4
+2026-07-06 13:15:08,833 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:15:08,835 - Querying index with top_k=4
+2026-07-06 13:15:09,780 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:15:12,552 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:19:39,067 - Scheduler has been shut down
+2026-07-06 13:19:47,005 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-06 13:19:47,050 - Added job "sync_all_companies" to job store "default"
+2026-07-06 13:19:47,050 - Scheduler started
+2026-07-06 13:20:54,615 - Scheduler has been shut down
+2026-07-06 13:21:13,452 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-06 13:21:13,497 - Added job "sync_all_companies" to job store "default"
+2026-07-06 13:21:13,498 - Scheduler started
+2026-07-06 13:23:04,130 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:23:04,176 - Querying index with top_k=4
+2026-07-06 13:23:05,608 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:23:07,369 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:23:13,072 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:23:13,076 - Querying index with top_k=4
+2026-07-06 13:23:19,512 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:23:19,517 - Querying index with top_k=4
+2026-07-06 13:23:20,443 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:23:23,115 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-06 13:23:28,653 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-06 13:23:28,656 - Querying index with top_k=4
+2026-07-06 13:23:29,586 - AFC is enabled with max remote calls: 10.
+2026-07-06 13:23:29,781 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 429 Too Many Requests"
+2026-07-06 13:23:29,782 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.93 seconds as it raised ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash\nPlease retry in 29.038738158s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.5-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '29s'}]}}.
+2026-07-06 13:23:33,295 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"

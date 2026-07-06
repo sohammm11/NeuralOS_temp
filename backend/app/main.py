@@ -881,7 +881,11 @@ async def approve_action(
         update_action_status(request.action_id, "approved")
         audit_log("ACTION_APPROVED", f"type={action_type}", str(company["_id"]))
 
-        return {"success": True, "message": result_message}
+        return {
+            "success": True, 
+            "message": result_message,
+            "url": result.get("url", "")
+        }
 
     except Exception as e:
         return {"success": False, "message": str(e)}
