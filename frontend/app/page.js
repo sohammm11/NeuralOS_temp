@@ -1,12 +1,13 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network, Clock } from 'lucide-react'
+import { MessageSquare, Database, GitBranch, Settings, Send, Plus, Zap, Bot, Loader2, Network, Clock, LayoutDashboard } from 'lucide-react'
 import { tokens, btn, card } from './design'
 import { useRouter } from 'next/navigation'
 import KnowledgeGraph from './components/KnowledgeGraph'
 
 const NAV = [
+  { icon: LayoutDashboard, label: 'Dashboard' },
   { icon: MessageSquare, label: 'Chat' },
   { icon: Zap, label: 'Insights' },
   { icon: Database, label: 'Sources' },
@@ -41,7 +42,7 @@ export default function Home() {
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
-  const [active, setActive] = useState('Chat')
+  const [active, setActive] = useState('Dashboard')
   const [insights, setInsights] = useState([])
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [company, setCompany] = useState('Your Company')
@@ -85,6 +86,8 @@ export default function Home() {
   const [triggeringSyncAll, setTriggeringSyncAll] = useState(false)
   const [syncAllMessage, setSyncAllMessage] = useState('')
   const [scanMessage, setScanMessage] = useState('')
+  const [dashboard, setDashboard] = useState(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
   const bottomRef = useRef(null)
   const intervalsRef = useRef([])
 
@@ -98,7 +101,20 @@ export default function Home() {
     fetchAlerts()
     fetchSyncStatus()
     fetchSchedulerStatus()
+    fetchDashboard()
   }, [])
+
+  async function fetchDashboard() {
+    setDashboardLoading(true)
+    try {
+      const res = await fetch('http://localhost:8000/api/dashboard', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.success) setDashboard(data)
+    } catch (err) {}
+    setDashboardLoading(false)
+  }
 
   async function fetchTimeline() {
     setTimelineLoading(true)
@@ -653,6 +669,7 @@ export default function Home() {
               key={label}
               onClick={() => {
                 setActive(label)
+                if (label === 'Dashboard') fetchDashboard()
                 if (label === 'Insights' && insights.length === 0) fetchInsights()
                 if (label === 'Workflows') fetchPendingActions()
                 if (label === 'Sources') {
@@ -1673,6 +1690,322 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          ) : active === 'Dashboard' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {dashboardLoading || !dashboard ? (
+                <div style={{ fontSize: '12px', color: '#4a5068' }}>Loading dashboard...</div>
+              ) : (
+                <>
+                  {/* Header */}
+                  <div>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#e2e8f0',
+                      letterSpacing: '-0.3px',
+                      marginBottom: '4px',
+                    }}>Company dashboard</div>
+                    <div style={{ fontSize: '12px', color: '#4a5068' }}>
+                      Real-time intelligence for {company}
+                    </div>
+                  </div>
+
+                  {/* Top row — vitals */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '12px',
+                  }}>
+                    {[
+                      {
+                        label: 'Health score',
+                        value: `${dashboard.health_score}/100`,
+                        color: dashboard.health_score >= 80 ? '#10b981' :
+                               dashboard.health_score >= 60 ? '#f59e0b' : '#ef4444',
+                        sub: dashboard.health_score >= 80 ? 'Excellent' :
+                             dashboard.health_score >= 60 ? 'Needs attention' : 'Critical'
+                      },
+                      {
+                        label: 'Active alerts',
+                        value: dashboard.alerts.total,
+                        color: dashboard.alerts.critical > 0 ? '#ef4444' : '#f59e0b',
+                        sub: `${dashboard.alerts.critical} critical`
+                      },
+                      {
+                        label: 'Docs indexed',
+                        value: dashboard.knowledge.total_chunks,
+                        color: '#7c3aed',
+                        sub: `${dashboard.knowledge.sources_count} sources`
+                      },
+                      {
+                        label: 'Last sync',
+                        value: dashboard.knowledge.last_sync
+                          ? new Date(dashboard.knowledge.last_sync).toLocaleTimeString('en-IN', {
+                              hour: '2-digit', minute: '2-digit'
+                            })
+                          : 'Never',
+                        color: '#10b981',
+                        sub: 'Auto-syncs hourly'
+                      },
+                    ].map((item, i) => (
+                      <div key={i} style={{
+                        padding: '16px',
+                        background: '#0d0f18',
+                        border: '0.5px solid #1e2130',
+                        borderRadius: '8px',
+                      }}>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#4a5068',
+                          marginBottom: '8px',
+                          fontWeight: '500',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                        }}>{item.label}</div>
+                        <div style={{
+                          fontSize: '22px',
+                          fontWeight: '600',
+                          color: item.color,
+                          marginBottom: '4px',
+                          letterSpacing: '-0.5px',
+                        }}>{item.value}</div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#4a5068',
+                        }}>{item.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Second row */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                  }}>
+                    {/* Client health */}
+                    <div style={{
+                      padding: '16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                    }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: '#e2e8f0',
+                        marginBottom: '14px',
+                      }}>Client health</div>
+                      {dashboard.graph.clients.length === 0 ? (
+                        <div style={{ fontSize: '11px', color: '#4a5068' }}>
+                          No clients in graph. Run auto-extract.
+                        </div>
+                      ) : (
+                        dashboard.graph.clients.map((client, i) => (
+                          <div key={i} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '10px',
+                          }}>
+                            <div style={{ fontSize: '13px', color: '#e2e8f0' }}>{client.name}</div>
+                            <div style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '500',
+                              background: client.health === 'at_risk' ? 'rgba(239,68,68,0.1)' :
+                                         client.health === 'onboarding' ? 'rgba(245,158,11,0.1)' :
+                                         'rgba(16,185,129,0.1)',
+                              color: client.health === 'at_risk' ? '#ef4444' :
+                                     client.health === 'onboarding' ? '#f59e0b' : '#10b981',
+                            }}>
+                              {client.health?.replace('_', ' ')}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Knowledge graph stats */}
+                    <div style={{
+                      padding: '16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                    }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: '#e2e8f0',
+                        marginBottom: '14px',
+                      }}>Knowledge graph</div>
+                      {[
+                        { label: 'Total entities', value: dashboard.graph.nodes, color: '#a78bfa' },
+                        { label: 'Relationships', value: dashboard.graph.relationships, color: '#7c3aed' },
+                        { label: 'Team members', value: dashboard.people_count, color: '#3b82f6' },
+                        { label: 'Pending approvals', value: dashboard.pending_actions, color: '#f59e0b' },
+                      ].map((item, i) => (
+                        <div key={i} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '10px',
+                        }}>
+                          <div style={{ fontSize: '12px', color: '#4a5068' }}>{item.label}</div>
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: item.color,
+                          }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Third row — knowledge growth */}
+                  <div style={{
+                    padding: '16px',
+                    background: '#0d0f18',
+                    border: '0.5px solid #1e2130',
+                    borderRadius: '8px',
+                  }}>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      color: '#e2e8f0',
+                      marginBottom: '14px',
+                    }}>Knowledge growth</div>
+                    {dashboard.knowledge.growth.length === 0 ? (
+                      <div style={{ fontSize: '11px', color: '#4a5068' }}>
+                        No sync history yet.
+                      </div>
+                    ) : (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        gap: '8px',
+                        height: '80px',
+                      }}>
+                        {dashboard.knowledge.growth.map((item, i) => {
+                          const maxChunks = Math.max(...dashboard.knowledge.growth.map(g => g.chunks))
+                          const height = maxChunks > 0 ? (item.chunks / maxChunks) * 70 : 4
+                          return (
+                            <div key={i} style={{
+                              flex: 1,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}>
+                              <div style={{
+                                fontSize: '9px',
+                                color: '#4a5068',
+                              }}>{item.chunks}</div>
+                              <div style={{
+                                width: '100%',
+                                height: `${Math.max(height, 4)}px`,
+                                background: '#7c3aed',
+                                borderRadius: '2px',
+                                opacity: 0.7,
+                              }}/>
+                              <div style={{
+                                fontSize: '9px',
+                                color: '#4a5068',
+                                textAlign: 'center',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                width: '100%',
+                              }}>{item.source?.slice(0, 6)}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fourth row — feedback + sources */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                  }}>
+                    {/* AI feedback */}
+                    <div style={{
+                      padding: '16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                    }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: '#e2e8f0',
+                        marginBottom: '14px',
+                      }}>AI feedback loop</div>
+                      <div style={{
+                        display: 'flex',
+                        gap: '16px',
+                      }}>
+                        <div>
+                          <div style={{
+                            fontSize: '22px',
+                            fontWeight: '600',
+                            color: '#10b981',
+                            letterSpacing: '-0.5px',
+                          }}>{dashboard.feedback.confirmed}</div>
+                          <div style={{ fontSize: '11px', color: '#4a5068' }}>Confirmed</div>
+                        </div>
+                        <div>
+                          <div style={{
+                            fontSize: '22px',
+                            fontWeight: '600',
+                            color: '#f59e0b',
+                            letterSpacing: '-0.5px',
+                          }}>{dashboard.feedback.corrections}</div>
+                          <div style={{ fontSize: '11px', color: '#4a5068' }}>Corrections</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Connected sources */}
+                    <div style={{
+                      padding: '16px',
+                      background: '#0d0f18',
+                      border: '0.5px solid #1e2130',
+                      borderRadius: '8px',
+                    }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: '#e2e8f0',
+                        marginBottom: '14px',
+                      }}>Connected sources</div>
+                      {dashboard.knowledge.sources.map((src, i) => (
+                        <div key={i} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginBottom: '8px',
+                        }}>
+                          <span style={{
+                            width: '5px', height: '5px',
+                            borderRadius: '50%',
+                            background: '#10b981',
+                            flexShrink: 0,
+                          }}/>
+                          <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                            {src.charAt(0).toUpperCase() + src.slice(1)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           ) : active === 'Timeline' ? (

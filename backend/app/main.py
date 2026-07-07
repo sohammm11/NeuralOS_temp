@@ -1200,6 +1200,118 @@ async def trigger_sync(company: dict = Depends(verify_api_key)):
         return {"success": False, "message": str(e)}
 
 
+@app.get("/api/dashboard")
+async def get_dashboard(company: dict = Depends(verify_api_key)):
+    try:
+        from app.database import db
+        company_id = str(company["_id"])
+
+        # Active alerts
+        active_alerts = list(db.alerts.find({
+            "company_id": company_id,
+            "resolved": False
+        }))
+        critical_alerts = [a for a in active_alerts if a.get("severity") == "critical"]
+
+        # Sync history
+        syncs = list(db.sync_history.find(
+            {"company_id": company_id}
+        ).sort("synced_at", -1))
+
+        total_chunks = sum(s.get("chunks_indexed", 0) for s in syncs)
+        last_sync = syncs[0]["synced_at"].isoformat() if syncs else None
+
+        # Unique sources synced
+        sources_synced = list(set([s["source"] for s in syncs]))
+
+        # Feedback stats
+        total_corrections = db.feedback.count_documents({
+            "company_id": company_id,
+            "feedback_type": "bad"
+        })
+        total_good = db.feedback.count_documents({
+            "company_id": company_id,
+            "feedback_type": "good"
+        })
+
+        # Pending actions
+        pending_actions = db.pending_actions.count_documents({
+            "company_id": company_id,
+            "status": "pending"
+        })
+
+        # Graph stats
+        total_nodes = db.graph_nodes.count_documents({"company_id": company_id})
+        total_relationships = db.graph_relationships.count_documents({"company_id": company_id})
+
+        # Knowledge growth (chunks per sync over time)
+        knowledge_growth = [
+            {
+                "date": s["synced_at"].strftime("%d %b"),
+                "chunks": s.get("chunks_indexed", 0),
+                "source": s.get("source", "unknown")
+            }
+            for s in reversed(syncs[-10:])
+        ]
+
+        # Client health from graph
+        clients = list(db.graph_nodes.find({
+            "company_id": company_id,
+            "type": "Client"
+        }))
+        client_health = [
+            {
+                "name": c["name"],
+                "health": c.get("properties", {}).get("health", "unknown")
+            }
+            for c in clients
+        ]
+
+        # Action items from graph relationships
+        people = list(db.graph_nodes.find({
+            "company_id": company_id,
+            "type": "Person"
+        }))
+        
+        # Compute health score (0-100)
+        health_score = 100
+        health_score -= len(critical_alerts) * 15
+        health_score -= len([c for c in client_health if c["health"] == "at_risk"]) * 10
+        health_score -= pending_actions * 5
+        health_score -= total_corrections * 2
+        health_score = max(0, min(100, health_score))
+
+        return {
+            "success": True,
+            "health_score": health_score,
+            "alerts": {
+                "total": len(active_alerts),
+                "critical": len(critical_alerts)
+            },
+            "knowledge": {
+                "total_chunks": total_chunks,
+                "sources_count": len(sources_synced),
+                "sources": sources_synced,
+                "last_sync": last_sync,
+                "growth": knowledge_growth
+            },
+            "graph": {
+                "nodes": total_nodes,
+                "relationships": total_relationships,
+                "clients": client_health
+            },
+            "feedback": {
+                "corrections": total_corrections,
+                "confirmed": total_good
+            },
+            "pending_actions": pending_actions,
+            "people_count": len(people)
+        }
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}

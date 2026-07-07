@@ -1789,3 +1789,104 @@
 2026-07-07 12:30:28,675 - Added job "sync_all_companies" to job store "default"
 2026-07-07 12:30:28,675 - Scheduler started
 2026-07-07 12:30:41,362 - Scheduler has been shut down
+2026-07-07 12:31:03,748 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 12:31:03,749 - Added job "sync_all_companies" to job store "default"
+2026-07-07 12:31:03,749 - Scheduler started
+2026-07-07 12:31:27,939 - HTTP Request: POST https://api.notion.com/v1/search "HTTP/1.1 200 OK"
+2026-07-07 12:31:28,685 - HTTP Request: GET https://api.notion.com/v1/blocks/3957dec7-4860-8180-b441-f1e8d8def8de/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:29,197 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8091-aa06-eb09d91b8b3d/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:29,509 - HTTP Request: GET https://api.notion.com/v1/blocks/3957dec7-4860-819c-a72b-ea5034ee11fd/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:29,862 - HTTP Request: GET https://api.notion.com/v1/blocks/37d7dec7-4860-81d9-a9b5-d63c13fe8e77/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:30,172 - HTTP Request: GET https://api.notion.com/v1/blocks/37c7dec7-4860-8148-a4fb-eee0d13d9184/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:30,627 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8041-84af-d7f8fbae8f1a/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:31,011 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-8031-bbe0-ffa436ee60ed/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:31,499 - HTTP Request: GET https://api.notion.com/v1/blocks/3797dec7-4860-80a3-b7ab-ffb69fc2d751/children "HTTP/1.1 200 OK"
+2026-07-07 12:31:32,452 - Describing index 'neuralos'
+2026-07-07 12:31:33,611 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-07 12:31:33,882 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-07 12:31:35,429 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:31:35,458 - Upserting 14 vectors into namespace 'my_company'
+2026-07-07 12:32:22,679 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=What is our tech stack?
+2026-07-07 12:32:23,841 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:32:24,364 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-07-07 12:32:24,365 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.7 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-07-07 12:32:27,088 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-07-07 12:32:27,089 - Retrying google.genai._api_client.BaseApiClient._request_once in 2.26 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-07-07 12:32:35,386 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 12:32:35,887 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:32:35,888 - Querying index with top_k=8
+2026-07-07 12:32:38,009 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 12:32:38,014 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:32:40,005 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 12:40:55,916 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:40:57,848 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-07-07 12:40:57,849 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.54 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-07-07 12:41:00,682 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-07-07 12:41:00,683 - Retrying google.genai._api_client.BaseApiClient._request_once in 2.81 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-07-07 12:41:14,390 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 12:41:14,875 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:41:14,876 - Querying index with top_k=8
+2026-07-07 12:41:16,746 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 12:41:16,748 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:41:20,159 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 12:41:26,768 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:41:31,750 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 12:41:32,262 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:41:32,267 - Querying index with top_k=8
+2026-07-07 12:41:34,026 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 12:41:34,029 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:41:35,839 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 12:41:41,852 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:41:51,520 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 12:41:52,033 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:41:52,034 - Querying index with top_k=8
+2026-07-07 12:41:53,753 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 12:41:53,755 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:41:57,374 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 17:30:28,248 - Scheduler has been shut down
+2026-07-07 17:30:39,881 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 17:30:39,883 - Added job "sync_all_companies" to job store "default"
+2026-07-07 17:30:39,883 - Scheduler started
+2026-07-07 17:34:47,474 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:34:51,497 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-07-07 17:34:51,500 - Retrying google.genai._api_client.BaseApiClient._request_once in 1.94 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-07-07 17:35:10,044 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 17:35:10,634 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:35:10,636 - Querying index with top_k=8
+2026-07-07 17:35:13,079 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 17:35:13,133 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:35:18,321 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 17:35:25,451 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:35:30,180 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 17:35:30,681 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:35:30,682 - Querying index with top_k=8
+2026-07-07 17:35:32,551 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 17:35:32,553 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:35:34,419 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 17:35:40,685 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:35:49,268 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 17:35:49,736 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:35:49,739 - Querying index with top_k=8
+2026-07-07 17:35:51,583 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 17:35:51,586 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:35:54,178 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 17:46:59,017 - file_cache is only supported with oauth2client<4.0.0
+2026-07-07 17:47:07,330 - Describing index 'neuralos'
+2026-07-07 17:47:08,586 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
+2026-07-07 17:47:09,267 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
+2026-07-07 17:47:13,857 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:47:13,953 - Upserting 22 vectors into namespace 'my_company'
+2026-07-07 17:47:57,273 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=Tell me everything about Flipkart — their role, re
+2026-07-07 17:47:58,489 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:48:10,023 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 17:48:10,565 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:48:10,567 - Querying index with top_k=8
+2026-07-07 17:48:12,404 - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2026-07-07 17:48:12,451 - AFC is enabled with max remote calls: 10.
+2026-07-07 17:48:18,900 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse "HTTP/1.1 200 OK"
+2026-07-07 17:48:58,498 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:48:58,500 - Querying index with top_k=10
+2026-07-07 17:48:59,873 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:48:59,875 - Querying index with top_k=5
+2026-07-07 17:49:00,624 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 17:49:00,626 - Querying index with top_k=8
