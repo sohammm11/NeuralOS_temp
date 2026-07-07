@@ -4,6 +4,7 @@ from pinecone import Pinecone
 import app.config as config
 from app.graph import query_graph, graph_enabled
 from app.feedback import get_relevant_corrections
+from app.hybrid_search import bm25_search, hybrid_fusion
 
 # Global variables initialized to None
 embeddings = None
@@ -82,9 +83,9 @@ If the question is already specific, return it as-is.
 
 Rewritten query:"""
 
-        # Use gemini-1.5-flash for faster query rewriting
+        # Use gemini-2.5-flash for faster query rewriting
         rewrite_llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             google_api_key=config.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY"),
             temperature=0,
             streaming=False
@@ -93,9 +94,9 @@ Rewritten query:"""
         try:
             response = rewrite_llm.invoke(prompt)
         except Exception as rate_err:
-            if "429" in str(rate_err) and config.GEMINI_API_KEY_BACKUP:
+            if ("429" in str(rate_err) or "quota" in str(rate_err).lower()) and config.GEMINI_API_KEY_BACKUP:
                 backup_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-lite",
+                    model="gemini-2.5-flash",
                     google_api_key=config.GEMINI_API_KEY_BACKUP,
                     temperature=0,
                     streaming=False
@@ -229,18 +230,32 @@ def query_rag(question: str, history: list = [], namespace: str = "default"):
                 "quality": quality
             }
 
-        # 5. Extract chunks and sources
-        raw_chunks = []
-        raw_sources = []
+        # 5. Extract dense results
+        dense_results = []
         for match in search_response.matches:
             text = match.metadata.get("text", "")
             source = match.metadata.get("source", "Unknown Source")
             if text:
-                raw_chunks.append(text)
-                raw_sources.append(source)
+                dense_results.append((text, source, match.score))
 
-        # 6. Rerank
-        reranked = rerank_chunks(rewritten_question, raw_chunks, raw_sources)
+        raw_chunks = [r[0] for r in dense_results]
+        raw_sources = [r[1] for r in dense_results]
+
+        # 6. BM25 sparse search over same candidates
+        sparse_results = bm25_search(
+            query=rewritten_question,
+            chunks=raw_chunks,
+            sources=raw_sources,
+            top_k=8
+        )
+
+        # 7. Hybrid fusion
+        hybrid_results = hybrid_fusion(dense_results, sparse_results)
+        fused_chunks = [r[0] for r in hybrid_results]
+        fused_sources = [r[1] for r in hybrid_results]
+
+        # 8. Rerank fused results
+        reranked = rerank_chunks(rewritten_question, fused_chunks, fused_sources)
         context_chunks = [r[0] for r in reranked]
         sources = set([r[1] for r in reranked])
             
@@ -390,29 +405,46 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
             yield {"type": "quality", "data": quality}
             return
 
-        # 5. Extract
+        # Initialize before extraction
+        source_scores = []
         raw_chunks = []
         raw_sources = []
-        source_scores = []
+        dense_results = []
 
+        # 5. Extract dense results
         for match in search_response.matches:
             text = match.metadata.get("text", "")
             source = match.metadata.get("source", "Unknown Source")
             score = round(match.score * 100, 1)
             if text:
-                raw_chunks.append(text)
-                raw_sources.append(source)
+                dense_results.append((text, source, match.score))
                 source_scores.append({"source": source, "score": score})
+
+        raw_chunks = [r[0] for r in dense_results]
+        raw_sources = [r[1] for r in dense_results]
 
         yield {
             "type": "thinking",
             "step": "retrieved",
-            "content": f"Found {len(raw_chunks)} chunks, reranking...",
+            "content": f"Found {len(raw_chunks)} chunks, running hybrid search...",
             "sources": source_scores
         }
 
-        # 6. Rerank
-        reranked = rerank_chunks(rewritten_question, raw_chunks, raw_sources)
+        # 6. BM25 sparse search
+        sparse_results = bm25_search(
+            query=rewritten_question,
+            chunks=raw_chunks,
+            sources=raw_sources,
+            top_k=8
+        )
+
+        # 7. Hybrid fusion
+        hybrid_results = hybrid_fusion(dense_results, sparse_results)
+        fused_chunks = [r[0] for r in hybrid_results]
+        fused_sources = [r[1] for r in hybrid_results]
+
+        # 8. Rerank
+        reranked = rerank_chunks(rewritten_question, fused_chunks, fused_sources)
         context_chunks = [r[0] for r in reranked]
         sources = set([r[1] for r in reranked])
 

@@ -1632,3 +1632,62 @@
 2026-07-07 11:47:10,245 - HTTP Request: GET https://api.pinecone.io/indexes/neuralos "HTTP/1.1 200 OK"
 2026-07-07 11:47:10,743 - Index client created for host https://neuralos-xxrubvw.svc.aped-4627-b74a.pinecone.io
 2026-07-07 11:47:12,330 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 11:47:12,359 - Upserting 14 vectors into namespace 'my_company'
+2026-07-07 11:53:54,336 - Scheduler has been shut down
+2026-07-07 11:54:05,277 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:54:05,278 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:54:05,279 - Scheduler started
+2026-07-07 11:54:16,463 - Scheduler has been shut down
+2026-07-07 11:54:32,049 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:54:32,051 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:54:32,051 - Scheduler started
+2026-07-07 11:54:32,320 - Scheduler has been shut down
+2026-07-07 11:54:54,401 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:54:54,402 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:54:54,403 - Scheduler started
+2026-07-07 11:55:37,370 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=What tech stack do we use?
+2026-07-07 11:55:38,738 - AFC is enabled with max remote calls: 10.
+2026-07-07 11:55:39,012 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent "HTTP/1.1 404 Not Found"
+2026-07-07 11:55:39,580 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 11:55:39,583 - Querying index with top_k=8
+2026-07-07 11:56:36,074 - Scheduler has been shut down
+2026-07-07 11:56:45,663 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:56:45,665 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:56:45,666 - Scheduler started
+2026-07-07 11:57:07,499 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=What tech stack do we use?
+2026-07-07 11:57:08,550 - AFC is enabled with max remote calls: 10.
+2026-07-07 11:57:08,761 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent "HTTP/1.1 404 Not Found"
+2026-07-07 11:57:09,274 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 11:57:09,276 - Querying index with top_k=8
+2026-07-07 11:57:29,225 - Scheduler has been shut down
+2026-07-07 11:57:51,392 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:57:51,393 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:57:51,393 - Scheduler started
+2026-07-07 11:57:56,576 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=Who is our most at-risk client?
+2026-07-07 11:57:57,915 - AFC is enabled with max remote calls: 10.
+2026-07-07 11:57:58,461 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent "HTTP/1.1 404 Not Found"
+2026-07-07 11:57:59,342 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 11:57:59,344 - Querying index with top_k=8
+2026-07-07 11:58:56,458 - Scheduler has been shut down
+2026-07-07 11:59:05,858 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 11:59:05,860 - Added job "sync_all_companies" to job store "default"
+2026-07-07 11:59:05,860 - Scheduler started
+2026-07-07 11:59:52,199 - Scheduler has been shut down
+2026-07-07 12:00:28,638 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 12:00:28,639 - Added job "sync_all_companies" to job store "default"
+2026-07-07 12:00:28,639 - Scheduler started
+2026-07-07 12:00:39,359 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=Who is our most at-risk client?
+2026-07-07 12:00:40,505 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:00:40,712 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent "HTTP/1.1 404 Not Found"
+2026-07-07 12:00:41,220 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:00:41,221 - Querying index with top_k=8
+2026-07-07 12:02:02,188 - Scheduler has been shut down
+2026-07-07 12:02:13,359 - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-07-07 12:02:13,360 - Added job "sync_all_companies" to job store "default"
+2026-07-07 12:02:13,360 - Scheduler started
+2026-07-07 12:02:45,459 - ACTION=CHAT | COMPANY=6a4a4f47d9ef2d6e7a095742 | DETAILS=question=Who is our most at-risk client?
+2026-07-07 12:02:46,689 - AFC is enabled with max remote calls: 10.
+2026-07-07 12:02:53,361 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-07-07 12:02:53,904 - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents "HTTP/1.1 200 OK"
+2026-07-07 12:02:53,906 - Querying index with top_k=8
+2026-07-07 12:04:14,584 - Scheduler has been shut down
