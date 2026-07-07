@@ -5,6 +5,7 @@ import app.config as config
 from app.graph import query_graph, graph_enabled
 from app.feedback import get_relevant_corrections
 from app.hybrid_search import bm25_search, hybrid_fusion
+from app.encryption import decrypt_chunks
 
 # Global variables initialized to None
 embeddings = None
@@ -191,7 +192,7 @@ def rerank_chunks(question: str, chunks: list, sources: list) -> list:
         print(f"Reranking failed, using original order: {e}")
         return list(zip(chunks, sources))
 
-def query_rag(question: str, history: list = [], namespace: str = "default"):
+def query_rag(question: str, history: list = [], namespace: str = "default", company_id: str = "default"):
     """
     Search Pinecone vector store, construct the prompt, query Gemini, and return the answer + sources.
     If RAG setup is incomplete, fallback to a clean system response.
@@ -231,12 +232,11 @@ def query_rag(question: str, history: list = [], namespace: str = "default"):
             }
 
         # 5. Extract dense results
+        decrypted = decrypt_chunks(search_response.matches, company_id)
         dense_results = []
-        for match in search_response.matches:
-            text = match.metadata.get("text", "")
-            source = match.metadata.get("source", "Unknown Source")
-            if text:
-                dense_results.append((text, source, match.score))
+        for item in decrypted:
+            if item["text"]:
+                dense_results.append((item["text"], item["source"], item["score"]))
 
         raw_chunks = [r[0] for r in dense_results]
         raw_sources = [r[1] for r in dense_results]
@@ -356,7 +356,7 @@ def get_mock_response(question: str):
             "answer": f"API keys are not configured in backend/.env. (Running in local Demo mode).\n\nYou queried: '{question}'. Set your API keys in your .env to connect to Gemini and Pinecone.",
             "sources": ["System Configuration"]
         }
-async def query_rag_stream(question: str, history: list = [], namespace: str = "default"):
+async def query_rag_stream(question: str, history: list = [], namespace: str = "default", company_id: str = "default"):
     print(f"DEBUG stream: namespace={namespace} question={question[:30]}")
     """
     Streaming version of query_rag.
@@ -405,6 +405,14 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
             yield {"type": "quality", "data": quality}
             return
 
+        # Yield quality info to frontend
+        yield {
+            "type": "thinking",
+            "step": "quality",
+            "content": f"Retrieval confidence: {quality['quality'].upper()}",
+            "quality": quality
+        }
+
         # Initialize before extraction
         source_scores = []
         raw_chunks = []
@@ -412,13 +420,13 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         dense_results = []
 
         # 5. Extract dense results
-        for match in search_response.matches:
-            text = match.metadata.get("text", "")
-            source = match.metadata.get("source", "Unknown Source")
-            score = round(match.score * 100, 1)
-            if text:
-                dense_results.append((text, source, match.score))
-                source_scores.append({"source": source, "score": score})
+        decrypted = decrypt_chunks(search_response.matches, company_id)
+        for item in decrypted:
+            if item["text"]:
+                dense_results.append((item["text"], item["source"], item["score"]))
+                # Keep round metrics for UI scores
+                ui_score = round(item["score"] * 100, 1)
+                source_scores.append({"source": item["source"], "score": ui_score})
 
         raw_chunks = [r[0] for r in dense_results]
         raw_sources = [r[1] for r in dense_results]

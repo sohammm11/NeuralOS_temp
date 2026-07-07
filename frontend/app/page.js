@@ -2463,6 +2463,10 @@ export default function Home() {
                       fontSize: '11px',
                       color: step.step === 'searching' ? '#7c3aed' :
                              step.step === 'retrieved' ? '#10b981' :
+                             step.step === 'quality' ? (
+                               step.quality?.quality === 'high' ? '#10b981' :
+                               step.quality?.quality === 'medium' ? '#f59e0b' : '#ef4444'
+                             ) :
                              step.step === 'reasoning' ? '#f59e0b' :
                              step.step === 'done' ? '#10b981' : '#4a5068',
                       fontWeight: '500',
@@ -2473,6 +2477,10 @@ export default function Home() {
                     }}>
                       {step.step === 'searching' ? '🔍' :
                        step.step === 'retrieved' ? '📄' :
+                       step.step === 'quality' ? (
+                         step.quality?.quality === 'high' ? '✓' :
+                         step.quality?.quality === 'medium' ? '~' : '!'
+                       ) :
                        step.step === 'reasoning' ? '🧠' :
                        step.step === 'done' ? '✓' : '✓'}
                       {step.step.charAt(0).toUpperCase() + step.step.slice(1)}
@@ -2482,6 +2490,18 @@ export default function Home() {
                       color: '#6b7280',
                       lineHeight: '1.5',
                     }}>{step.content}</div>
+                    {step.step === 'quality' && step.quality && (
+                      <div style={{
+                        marginTop: '4px',
+                        fontSize: '10px',
+                        color: '#4a5068',
+                        display: 'flex',
+                        gap: '8px',
+                      }}>
+                        <span>Max: {Math.round(step.quality.max_score * 100)}%</span>
+                        <span>Avg: {Math.round(step.quality.avg_score * 100)}%</span>
+                      </div>
+                    )}
 
                     {step.sources && step.sources.length > 0 && (
                       <div style={{

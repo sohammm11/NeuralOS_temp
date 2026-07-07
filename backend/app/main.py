@@ -17,6 +17,7 @@ from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
 from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id, create_user, verify_user, create_jwt_token, decode_jwt_token
 from app.pii_detector import scan_chunks
+from app.encryption import encrypt_chunks
 from app.anomaly import analyze_company
 from app.database import create_alert, get_active_alerts, resolve_alert
 import secrets
@@ -156,13 +157,18 @@ class ChatResponse(BaseModel):
     sources: List[str]
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(
+    request: ChatRequest,
+    company: dict = Depends(verify_api_key)
+):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     request.question = sanitize_input(request.question)
-    audit_log("CHAT", f"question={request.question[:50]}")
+    company_id = str(company["_id"])
+    namespace = company.get("pinecone_namespace", "default")
+    audit_log("CHAT", f"question={request.question[:50]}", company_id)
     try:
-        result = query_rag(request.question, request.history)
+        result = query_rag(request.question, request.history, namespace, company_id)
         return ChatResponse(
             answer=result["answer"],
             sources=result["sources"]
@@ -186,7 +192,7 @@ async def chat_stream_endpoint(
     async def generate():
         try:
             namespace = company.get("pinecone_namespace", "default")
-            async for chunk in query_rag_stream(body.question, body.history, namespace):
+            async for chunk in query_rag_stream(body.question, body.history, namespace, company_id):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -202,6 +208,8 @@ async def chat_stream_endpoint(
 
 @app.get("/api/insights")
 async def get_insights(company: dict = Depends(verify_api_key)):
+    company_id = str(company["_id"])
+    namespace = company.get("pinecone_namespace", "default")
     insight_queries = [
         {
             "id": "client_risk",
@@ -224,7 +232,7 @@ async def get_insights(company: dict = Depends(verify_api_key)):
     for item in insight_queries:
         try:
             await asyncio.sleep(5)
-            result = query_rag(item["query"], [])
+            result = query_rag(item["query"], [], namespace, company_id)
             results.append({
                 "id": item["id"],
                 "label": item["label"],
@@ -325,6 +333,8 @@ async def sync_notion(
         chunks, pii_report = scan_chunks(chunks)
         if pii_report["chunks_with_pii"] > 0:
             print(f"PII detected and redacted in Notion sync: {pii_report['findings']}")
+        chunks = encrypt_chunks(chunks, company_id)
+        print(f"DEBUG: Encrypted {len(chunks)} chunks for company {company_id}")
         
         # 3. Embed and store in Pinecone
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -428,6 +438,7 @@ async def sync_slack(
         chunks, pii_report = scan_chunks(chunks)
         if pii_report["chunks_with_pii"] > 0:
             print(f"PII detected and redacted in Slack sync: {pii_report['findings']}")
+        chunks = encrypt_chunks(chunks, company_id)
 
         # 3. Embed and store
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -593,6 +604,7 @@ async def sync_gmail(company: dict = Depends(verify_api_key)):
         chunks, pii_report = scan_chunks(chunks)
         if pii_report["chunks_with_pii"] > 0:
             print(f"PII detected and redacted in Gmail sync: {pii_report['findings']}")
+        chunks = encrypt_chunks(chunks, company_id)
 
         # 3. Embed and store
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -650,6 +662,7 @@ async def sync_gmail(company: dict = Depends(verify_api_key)):
 @app.post("/api/sync/drive")
 async def sync_drive(company: dict = Depends(verify_api_key)):
     try:
+        company_id = str(company["_id"])
         namespace = company.get("pinecone_namespace", "default")
         files = get_drive_files(max_files=15)
 
@@ -660,6 +673,7 @@ async def sync_drive(company: dict = Depends(verify_api_key)):
         chunks, pii_report = scan_chunks(chunks)
         if pii_report["chunks_with_pii"] > 0:
             print(f"PII detected and redacted in Drive sync: {pii_report['findings']}")
+        chunks = encrypt_chunks(chunks, company_id)
 
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
         embeddings = GoogleGenerativeAIEmbeddings(
