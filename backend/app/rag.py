@@ -56,6 +56,140 @@ def init_rag():
 # Try initializing on module load
 rag_enabled = init_rag()
 
+def rewrite_query(question: str, history: list = []) -> str:
+    """
+    Rewrites the user question into an optimized search query
+    before hitting the vector index.
+    """
+    try:
+        history_context = ""
+        if history:
+            last_few = history[-3:]
+            history_context = "Recent conversation:\n" + "\n".join([
+                f"{m.role}: {m.content[:100]}" for m in last_few
+            ]) + "\n\n"
+
+        prompt = f"""You are a search query optimizer for a company knowledge base.
+
+{history_context}Original question: {question}
+
+Rewrite this into 1-3 specific search queries that will retrieve the most relevant company documents.
+Focus on: key entities (people, clients, projects), specific events, technical terms, dates.
+Remove filler words. Add relevant synonyms.
+
+Return ONLY the rewritten query as a single line. No explanation.
+If the question is already specific, return it as-is.
+
+Rewritten query:"""
+
+        # Use gemini-1.5-flash for faster query rewriting
+        rewrite_llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            google_api_key=config.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY"),
+            temperature=0,
+            streaming=False
+        )
+
+        try:
+            response = rewrite_llm.invoke(prompt)
+        except Exception as rate_err:
+            if "429" in str(rate_err) and config.GEMINI_API_KEY_BACKUP:
+                backup_llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash-lite",
+                    google_api_key=config.GEMINI_API_KEY_BACKUP,
+                    temperature=0,
+                    streaming=False
+                )
+                response = backup_llm.invoke(prompt)
+            else:
+                raise rate_err
+
+        rewritten = response.content.strip().split('\n')[0].strip()
+        print(f"DEBUG query rewrite: '{question[:40]}' → '{rewritten[:40]}'")
+        return rewritten if rewritten else question
+
+    except Exception as e:
+        print(f"Query rewrite failed, using original: {e}")
+        return question
+
+def check_retrieval_quality(matches: list, threshold: float = 0.55) -> dict:
+    """
+    Checks if retrieved chunks are actually relevant.
+    Returns quality assessment before we trust the results.
+    """
+    if not matches:
+        return {
+            "quality": "empty",
+            "confident": False,
+            "max_score": 0,
+            "avg_score": 0,
+            "message": "No documents found in knowledge base."
+        }
+
+    scores = [m.score for m in matches]
+    max_score = max(scores)
+    avg_score = sum(scores) / len(scores)
+
+    if max_score < threshold:
+        return {
+            "quality": "low",
+            "confident": False,
+            "max_score": round(max_score, 3),
+            "avg_score": round(avg_score, 3),
+            "message": f"Best match score {round(max_score*100, 1)}% is below confidence threshold. Answer may be unreliable."
+        }
+    elif max_score < 0.70:
+        return {
+            "quality": "medium",
+            "confident": True,
+            "max_score": round(max_score, 3),
+            "avg_score": round(avg_score, 3),
+            "message": "Moderate confidence."
+        }
+    else:
+        return {
+            "quality": "high",
+            "confident": True,
+            "max_score": round(max_score, 3),
+            "avg_score": round(avg_score, 3),
+            "message": "High confidence retrieval."
+        }
+
+import cohere
+import os
+
+def rerank_chunks(question: str, chunks: list, sources: list) -> list:
+    """
+    Reranks retrieved chunks using Cohere reranker.
+    Returns reranked (chunk, source) pairs.
+    Falls back to original order if reranking fails.
+    """
+    try:
+        cohere_key = os.getenv("COHERE_API_KEY")
+        if not cohere_key or not chunks:
+            return list(zip(chunks, sources))
+
+        co = cohere.Client(cohere_key)
+        
+        response = co.rerank(
+            model="rerank-english-v3.0",
+            query=question,
+            documents=chunks,
+            top_n=min(4, len(chunks))
+        )
+
+        reranked = []
+        for result in response.results:
+            idx = result.index
+            reranked.append((chunks[idx], sources[idx]))
+        
+        print(f"DEBUG rerank: reordered {len(reranked)} chunks")
+        return reranked
+
+    except Exception as e:
+        print(f"Reranking failed, using original order: {e}")
+        return list(zip(chunks, sources))
+
 def query_rag(question: str, history: list = [], namespace: str = "default"):
     """
     Search Pinecone vector store, construct the prompt, query Gemini, and return the answer + sources.
@@ -72,27 +206,43 @@ def query_rag(question: str, history: list = [], namespace: str = "default"):
         return get_mock_response(question)
         
     try:
-        # 1. Embed the user question
-        query_vector = embeddings.embed_query(question)
-        
-        # 2. Search Pinecone
+        # 1. Rewrite query for better retrieval
+        rewritten_question = rewrite_query(question, history)
+
+        # 2. Embed the rewritten question
+        query_vector = embeddings.embed_query(rewritten_question)
+
+        # 3. Search Pinecone with more candidates for reranking
         search_response = index.query(
             vector=query_vector,
-            top_k=4,
+            top_k=8,
             include_metadata=True,
             namespace=namespace
         )
 
-        # 3. Extract context
-        context_chunks = []
-        sources = set()
+        # 4. Quality gate
+        quality = check_retrieval_quality(search_response.matches)
+        if not quality["confident"]:
+            return {
+                "answer": f"I don't have reliable information about this. {quality['message']} Try syncing more data in the Sources tab.",
+                "sources": [],
+                "quality": quality
+            }
+
+        # 5. Extract chunks and sources
+        raw_chunks = []
+        raw_sources = []
         for match in search_response.matches:
             text = match.metadata.get("text", "")
             source = match.metadata.get("source", "Unknown Source")
             if text:
-                context_chunks.append(text)
-            if source:
-                sources.add(source)
+                raw_chunks.append(text)
+                raw_sources.append(source)
+
+        # 6. Rerank
+        reranked = rerank_chunks(rewritten_question, raw_chunks, raw_sources)
+        context_chunks = [r[0] for r in reranked]
+        sources = set([r[1] for r in reranked])
             
         context_text = "\n\n---\n\n".join(context_chunks)
         
@@ -213,22 +363,36 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         return
 
     try:
-        # 1. Embed question
-        yield {"type": "thinking", "step": "searching", "content": "Searching knowledge base..."}
-        print("DEBUG: yielded searching step")
-        query_vector = embeddings.embed_query(question)
+        # 1. Rewrite query
+        yield {"type": "thinking", "step": "searching", "content": "Optimizing search query..."}
+        rewritten_question = rewrite_query(question, history)
 
-        # 2. Search Pinecone
+        # 2. Embed
+        print("DEBUG: yielded searching step")
+        query_vector = embeddings.embed_query(rewritten_question)
+
+        # 3. Search Pinecone
         search_response = index.query(
             vector=query_vector,
-            top_k=4,
+            top_k=8,
             include_metadata=True,
             namespace=namespace
         )
 
-        # 3. Extract context
-        context_chunks = []
-        sources = set()
+        # 4. Quality gate
+        quality = check_retrieval_quality(search_response.matches)
+        if not quality["confident"]:
+            yield {
+                "type": "text",
+                "content": f"I don't have reliable information about this. {quality['message']} Try syncing more data in the Sources tab."
+            }
+            yield {"type": "sources", "sources": []}
+            yield {"type": "quality", "data": quality}
+            return
+
+        # 5. Extract
+        raw_chunks = []
+        raw_sources = []
         source_scores = []
 
         for match in search_response.matches:
@@ -236,17 +400,21 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
             source = match.metadata.get("source", "Unknown Source")
             score = round(match.score * 100, 1)
             if text:
-                context_chunks.append(text)
-            if source:
-                sources.add(source)
+                raw_chunks.append(text)
+                raw_sources.append(source)
                 source_scores.append({"source": source, "score": score})
 
         yield {
             "type": "thinking",
             "step": "retrieved",
-            "content": f"Found {len(context_chunks)} relevant chunks",
+            "content": f"Found {len(raw_chunks)} chunks, reranking...",
             "sources": source_scores
         }
+
+        # 6. Rerank
+        reranked = rerank_chunks(rewritten_question, raw_chunks, raw_sources)
+        context_chunks = [r[0] for r in reranked]
+        sources = set([r[1] for r in reranked])
 
         yield {"type": "thinking", "step": "reasoning", "content": "Reasoning across sources..."}
 

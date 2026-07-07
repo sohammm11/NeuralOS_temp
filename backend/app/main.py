@@ -16,6 +16,7 @@ from app.drive_connector import get_drive_files, chunk_drive_files
 from app.feedback import add_correction, add_good_answer, get_feedback_stats
 from app.agent import execute_agent
 from app.database import init_db, db_enabled, get_company_by_api_key, log_action, save_feedback as db_save_feedback, get_corrections, get_feedback_stats as db_feedback_stats, log_sync, get_sync_history, get_pending_actions, update_action_status, get_action_by_id, create_user, verify_user, create_jwt_token, decode_jwt_token
+from app.pii_detector import scan_chunks
 from app.anomaly import analyze_company
 from app.database import create_alert, get_active_alerts, resolve_alert
 import secrets
@@ -321,6 +322,9 @@ async def sync_notion(
         
         # 2. Chunk the content
         chunks = chunk_and_prepare(pages)
+        chunks, pii_report = scan_chunks(chunks)
+        if pii_report["chunks_with_pii"] > 0:
+            print(f"PII detected and redacted in Notion sync: {pii_report['findings']}")
         
         # 3. Embed and store in Pinecone
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -421,6 +425,9 @@ async def sync_slack(
 
         # 2. Chunk messages
         chunks = chunk_slack_messages(channels)
+        chunks, pii_report = scan_chunks(chunks)
+        if pii_report["chunks_with_pii"] > 0:
+            print(f"PII detected and redacted in Slack sync: {pii_report['findings']}")
 
         # 3. Embed and store
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -583,6 +590,9 @@ async def sync_gmail(company: dict = Depends(verify_api_key)):
 
         # 2. Chunk emails
         chunks = chunk_emails(emails)
+        chunks, pii_report = scan_chunks(chunks)
+        if pii_report["chunks_with_pii"] > 0:
+            print(f"PII detected and redacted in Gmail sync: {pii_report['findings']}")
 
         # 3. Embed and store
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -647,6 +657,9 @@ async def sync_drive(company: dict = Depends(verify_api_key)):
             return {"success": False, "message": "No Drive files found or authentication failed."}
 
         chunks = chunk_drive_files(files)
+        chunks, pii_report = scan_chunks(chunks)
+        if pii_report["chunks_with_pii"] > 0:
+            print(f"PII detected and redacted in Drive sync: {pii_report['findings']}")
 
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
         embeddings = GoogleGenerativeAIEmbeddings(
