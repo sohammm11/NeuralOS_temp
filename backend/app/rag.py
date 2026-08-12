@@ -1,5 +1,6 @@
 import os
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from datetime import datetime
+from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings, HTTPChatGoogleGenerativeAI
 from pinecone import Pinecone
 import app.config as config
 from app.graph import query_graph, graph_enabled
@@ -25,7 +26,7 @@ def init_rag():
     try:
         print("DEBUG init_rag: initializing embeddings...")
         # 1. Initialize Gemini Embeddings
-        embeddings = GoogleGenerativeAIEmbeddings(
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=config.GEMINI_API_KEY,
             output_dimensionality=768
@@ -44,8 +45,8 @@ def init_rag():
         index = pc_client.Index(config.PINECONE_INDEX_NAME)
         
         # 3. Initialize Gemini Chat LLM
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+        llm = HTTPChatGoogleGenerativeAI(
+            model="gemini-3.5-flash",
             google_api_key=config.GEMINI_API_KEY,
             temperature=0.2,
             streaming=True
@@ -84,9 +85,9 @@ If the question is already specific, return it as-is.
 
 Rewritten query:"""
 
-        # Use gemini-2.5-flash for faster query rewriting
+        # Use gemini-1.5-flash for faster query rewriting
         rewrite_llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             google_api_key=config.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY"),
             temperature=0,
             streaming=False
@@ -97,7 +98,7 @@ Rewritten query:"""
         except Exception as rate_err:
             if ("429" in str(rate_err) or "quota" in str(rate_err).lower()) and config.GEMINI_API_KEY_BACKUP:
                 backup_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.5-flash",
                     google_api_key=config.GEMINI_API_KEY_BACKUP,
                     temperature=0,
                     streaming=False
@@ -215,12 +216,16 @@ def query_rag(question: str, history: list = [], namespace: str = "default", com
         query_vector = embeddings.embed_query(rewritten_question)
 
         # 3. Search Pinecone with more candidates for reranking
+        print(f"DEBUG search: searching namespace='{namespace}' for company_id={company_id}")
         search_response = index.query(
             vector=query_vector,
-            top_k=8,
+            top_k=50,
             include_metadata=True,
             namespace=namespace
         )
+        print(f"DEBUG search: query='{rewritten_question}' top_scores={[match.score for match in search_response.matches]}")
+        print(f"DEBUG search: top_titles={[match.metadata.get('source', 'unknown') for match in search_response.matches]}")
+        print(f"DEBUG search: top_texts={[match.metadata.get('text', '')[:100] for match in search_response.matches]}")
 
         # 4. Quality gate
         quality = check_retrieval_quality(search_response.matches)
@@ -233,31 +238,68 @@ def query_rag(question: str, history: list = [], namespace: str = "default", com
 
         # 5. Extract dense results
         decrypted = decrypt_chunks(search_response.matches, company_id)
+        print(f"DEBUG recency check: found {len(decrypted)} decrypted chunks")
+        for item in decrypted[:3]:
+            print(f"  - source={item.get('source')} realtime={item.get('realtime')} score={item['score']:.3f}")
+            print(f"  - item keys = {list(item.keys())}")
+            print(f"  - item = {item}")
         dense_results = []
+        metadata_map = {}
         for item in decrypted:
             if item["text"]:
-                dense_results.append((item["text"], item["source"], item["score"]))
+                score = item["score"]
+                # Boost real-time messages
+                if item.get("realtime"):
+                    score = min(1.0, score * 1.3)
+                    print(f"DEBUG: recency boost applied to {item['source']}")
+                dense_results.append((item["text"], item["source"], score))
+                # Store metadata
+                key = item["text"][:100]
+                metadata_map[key] = {
+                    "source": item["source"],
+                    "timestamp": item.get("timestamp"),
+                    "realtime": item.get("realtime")
+                }
 
-        raw_chunks = [r[0] for r in dense_results]
-        raw_sources = [r[1] for r in dense_results]
+        # Sort dense_results by boosted score (highest first)
+        dense_results = sorted(dense_results, key=lambda x: x[2], reverse=True)
 
-        # 6. BM25 sparse search over same candidates
+        # Take top 15 candidates (instead of all 25) for sparse search
+        top_dense = dense_results[:15]
+        raw_chunks = [r[0] for r in top_dense]
+        raw_sources = [r[1] for r in top_dense]
+
+        # 6. BM25 sparse search over top candidates
         sparse_results = bm25_search(
             query=rewritten_question,
             chunks=raw_chunks,
             sources=raw_sources,
-            top_k=8
+            top_k=10
         )
 
-        # 7. Hybrid fusion
+        # 7. Hybrid fusion (use already-sorted dense_results)
         hybrid_results = hybrid_fusion(dense_results, sparse_results)
         fused_chunks = [r[0] for r in hybrid_results]
         fused_sources = [r[1] for r in hybrid_results]
 
-        # 8. Rerank fused results
-        reranked = rerank_chunks(rewritten_question, fused_chunks, fused_sources)
-        context_chunks = [r[0] for r in reranked]
-        sources = set([r[1] for r in reranked])
+        # 8. Rerank top 8 fused results
+        reranked = rerank_chunks(rewritten_question, fused_chunks[:8], fused_sources[:8])
+        context_chunks = []
+        sources = set()
+        for chunk, source in reranked:
+            sources.add(source)
+            key = chunk[:100]
+            meta = metadata_map.get(key, {})
+            ts = meta.get("timestamp")
+            
+            header = f"[Source: {source}]"
+            if ts:
+                try:
+                    dt = datetime.fromisoformat(ts)
+                    header = f"[Source: {source} | Date: {dt.strftime('%Y-%m-%d %H:%M')}]"
+                except:
+                    header = f"[Source: {source} | Date: {ts}]"
+            context_chunks.append(f"{header}\n{chunk}")
             
         context_text = "\n\n---\n\n".join(context_chunks)
         
@@ -308,8 +350,8 @@ def query_rag(question: str, history: list = [], namespace: str = "default", com
             response = llm.invoke(system_prompt)
         except Exception as e:
             if "429" in str(e) and config.GEMINI_API_KEY_BACKUP:
-                backup_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash",
+                backup_llm = HTTPChatGoogleGenerativeAI(
+                    model="gemini-3.5-flash",
                     google_api_key=config.GEMINI_API_KEY_BACKUP,
                     temperature=0.2,
                     streaming=True
@@ -387,12 +429,16 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         query_vector = embeddings.embed_query(rewritten_question)
 
         # 3. Search Pinecone
+        print(f"DEBUG search: searching namespace='{namespace}' for company_id={company_id}")
         search_response = index.query(
             vector=query_vector,
-            top_k=8,
+            top_k=50,
             include_metadata=True,
             namespace=namespace
         )
+        print(f"DEBUG search: query='{rewritten_question}' top_scores={[match.score for match in search_response.matches]}")
+        print(f"DEBUG search: top_titles={[match.metadata.get('source', 'unknown') for match in search_response.matches]}")
+        print(f"DEBUG search: top_texts={[match.metadata.get('text', '')[:100] for match in search_response.matches]}")
 
         # 4. Quality gate
         quality = check_retrieval_quality(search_response.matches)
@@ -421,15 +467,39 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
 
         # 5. Extract dense results
         decrypted = decrypt_chunks(search_response.matches, company_id)
+        print(f"DEBUG recency check: found {len(decrypted)} decrypted chunks")
+        for item in decrypted[:3]:
+            print(f"  - source={item.get('source')} realtime={item.get('realtime')} score={item['score']:.3f}")
+            print(f"  - item keys = {list(item.keys())}")
+            print(f"  - item = {item}")
+        metadata_map = {}
         for item in decrypted:
             if item["text"]:
-                dense_results.append((item["text"], item["source"], item["score"]))
+                score = item["score"]
+                # Boost real-time messages
+                if item.get("realtime"):
+                    score = min(1.0, score * 1.3)
+                    print(f"DEBUG: recency boost applied to {item['source']}")
+                dense_results.append((item["text"], item["source"], score))
                 # Keep round metrics for UI scores
-                ui_score = round(item["score"] * 100, 1)
+                ui_score = round(score * 100, 1)
                 source_scores.append({"source": item["source"], "score": ui_score})
+                # Store metadata
+                key = item["text"][:100]
+                metadata_map[key] = {
+                    "source": item["source"],
+                    "timestamp": item.get("timestamp"),
+                    "realtime": item.get("realtime")
+                }
 
-        raw_chunks = [r[0] for r in dense_results]
-        raw_sources = [r[1] for r in dense_results]
+        # Sort dense_results by boosted score (highest first)
+        dense_results = sorted(dense_results, key=lambda x: x[2], reverse=True)
+        source_scores = [{"source": r[1], "score": round(r[2] * 100, 1)} for r in dense_results]
+
+        # Take top 15 candidates (instead of all 25) for sparse search
+        top_dense = dense_results[:15]
+        raw_chunks = [r[0] for r in top_dense]
+        raw_sources = [r[1] for r in top_dense]
 
         yield {
             "type": "thinking",
@@ -443,7 +513,7 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
             query=rewritten_question,
             chunks=raw_chunks,
             sources=raw_sources,
-            top_k=8
+            top_k=10
         )
 
         # 7. Hybrid fusion
@@ -451,10 +521,24 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
         fused_chunks = [r[0] for r in hybrid_results]
         fused_sources = [r[1] for r in hybrid_results]
 
-        # 8. Rerank
-        reranked = rerank_chunks(rewritten_question, fused_chunks, fused_sources)
-        context_chunks = [r[0] for r in reranked]
-        sources = set([r[1] for r in reranked])
+        # 8. Rerank top 8 fused results
+        reranked = rerank_chunks(rewritten_question, fused_chunks[:8], fused_sources[:8])
+        context_chunks = []
+        sources = set()
+        for chunk, source in reranked:
+            sources.add(source)
+            key = chunk[:100]
+            meta = metadata_map.get(key, {})
+            ts = meta.get("timestamp")
+            
+            header = f"[Source: {source}]"
+            if ts:
+                try:
+                    dt = datetime.fromisoformat(ts)
+                    header = f"[Source: {source} | Date: {dt.strftime('%Y-%m-%d %H:%M')}]"
+                except:
+                    header = f"[Source: {source} | Date: {ts}]"
+            context_chunks.append(f"{header}\n{chunk}")
 
         yield {"type": "thinking", "step": "reasoning", "content": "Reasoning across sources..."}
 
@@ -509,8 +593,8 @@ async def query_rag_stream(question: str, history: list = [], namespace: str = "
                     yield {"type": "text", "content": chunk.content}
         except Exception as e:
             if "429" in str(e) and config.GEMINI_API_KEY_BACKUP:
-                backup_llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash",
+                backup_llm = HTTPChatGoogleGenerativeAI(
+                    model="gemini-3.5-flash",
                     google_api_key=config.GEMINI_API_KEY_BACKUP,
                     temperature=0.2,
                     streaming=True

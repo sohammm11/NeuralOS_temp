@@ -27,26 +27,21 @@ def bm25_search(query: str, chunks: list, sources: list, top_k: int = 8) -> list
     return results[:top_k]
 
 
+from datetime import datetime
+
 def hybrid_fusion(
     dense_results: list,
     sparse_results: list,
     dense_weight: float = 0.7,
     sparse_weight: float = 0.3
 ) -> list:
-    """
-    Combines dense (semantic) and sparse (BM25) results using
-    Reciprocal Rank Fusion (RRF) with weighted scores.
-    
-    dense_results: list of (chunk, source, score)
-    sparse_results: list of (chunk, source, score)
-    Returns: merged list of (chunk, source, combined_score)
-    """
     scores = {}
     chunk_map = {}
+    recency_map = {}
 
     # Score dense results
     for rank, (chunk, source, score) in enumerate(dense_results):
-        key = chunk[:100]  # use first 100 chars as key
+        key = chunk[:100]
         rrf_score = dense_weight * (1 / (rank + 60))
         scores[key] = scores.get(key, 0) + rrf_score
         chunk_map[key] = (chunk, source)

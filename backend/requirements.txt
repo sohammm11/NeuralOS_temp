@@ -12,3 +12,5 @@ neo4j
 google-api-python-client
 google-auth-oauthlib
 slowapi
+pdfplumber
+python-multipart

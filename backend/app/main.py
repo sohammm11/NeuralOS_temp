@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header, Request, Response, Cookie
+from fastapi import FastAPI, HTTPException, Depends, Header, Request, Response, Cookie, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -20,6 +20,8 @@ from app.pii_detector import scan_chunks
 from app.encryption import encrypt_chunks
 from app.anomaly import analyze_company
 from app.database import create_alert, get_active_alerts, resolve_alert
+from app.database import create_session, get_sessions, get_session, append_message, update_session_title, delete_session
+from app.deep_research import deep_synthesize_generator
 import secrets
 import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -49,6 +51,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -184,6 +187,7 @@ async def chat_stream_endpoint(
     company: dict = Depends(verify_api_key)
 ):
     body.question = sanitize_input(body.question)
+    print(f"COMPANY DOC: _id={str(company['_id'])} name={company.get('name')} ns={company.get('pinecone_namespace')}")
     company_id = str(company["_id"])
     audit_log("CHAT", f"question={body.question[:50]}", company_id)
     if not body.question.strip():
@@ -195,6 +199,41 @@ async def chat_stream_endpoint(
             async for chunk in query_rag_stream(body.question, body.history, namespace, company_id):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+class DeepResearchRequest(BaseModel):
+    question: str
+
+@app.post("/api/research/deep")
+@limiter.limit("15/minute")
+async def deep_research_endpoint(
+    request: Request,
+    body: DeepResearchRequest,
+    company: dict = Depends(verify_api_key)
+):
+    question = sanitize_input(body.question)
+    if not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    
+    company_id = str(company["_id"])
+    namespace = company.get("pinecone_namespace", "default")
+    audit_log("DEEP_RESEARCH", f"question={question[:50]}", company_id)
+
+    async def generate():
+        try:
+            async for step_event in deep_synthesize_generator(question, namespace, company_id):
+                yield f"data: {json.dumps(step_event)}\n\n"
+        except Exception as e:
+            print(f"[Deep Research Endpoint] Error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(
@@ -258,10 +297,10 @@ class InitializeRequest(BaseModel):
 @app.post("/api/initialize")
 async def initialize(request: InitializeRequest):
     try:
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings
         from pinecone import Pinecone
 
-        embeddings = GoogleGenerativeAIEmbeddings(
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=request.gemini_key,
             output_dimensionality=768
@@ -337,10 +376,10 @@ async def sync_notion(
         print(f"DEBUG: Encrypted {len(chunks)} chunks for company {company_id}")
         
         # 3. Embed and store in Pinecone
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings
         from pinecone import Pinecone
 
-        embeddings = GoogleGenerativeAIEmbeddings(
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=gemini_key,
             output_dimensionality=768
@@ -366,7 +405,8 @@ async def sync_notion(
                     "values": vector,
                     "metadata": {
                         "text": chunk["text"],
-                        "source": chunk["source"]
+                        "source": chunk["source"],
+                        "encrypted": chunk.get("encrypted", False)
                     }
                 })
 
@@ -441,10 +481,10 @@ async def sync_slack(
         chunks = encrypt_chunks(chunks, company_id)
 
         # 3. Embed and store
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings
         from pinecone import Pinecone
 
-        embeddings = GoogleGenerativeAIEmbeddings(
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=gemini_key,
             output_dimensionality=768
@@ -470,7 +510,8 @@ async def sync_slack(
                     "values": vector,
                     "metadata": {
                         "text": chunk["text"],
-                        "source": chunk["source"]
+                        "source": chunk["source"],
+                        "encrypted": chunk.get("encrypted", False)
                     }
                 })
 
@@ -607,10 +648,10 @@ async def sync_gmail(company: dict = Depends(verify_api_key)):
         chunks = encrypt_chunks(chunks, company_id)
 
         # 3. Embed and store
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings
         from pinecone import Pinecone
 
-        embeddings = GoogleGenerativeAIEmbeddings(
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=config.GEMINI_API_KEY,
             output_dimensionality=768
@@ -638,7 +679,8 @@ async def sync_gmail(company: dict = Depends(verify_api_key)):
                     "values": vector,
                     "metadata": {
                         "text": chunk["text"],
-                        "source": chunk["source"]
+                        "source": chunk["source"],
+                        "encrypted": chunk.get("encrypted", False)
                     }
                 })
 
@@ -675,8 +717,8 @@ async def sync_drive(company: dict = Depends(verify_api_key)):
             print(f"PII detected and redacted in Drive sync: {pii_report['findings']}")
         chunks = encrypt_chunks(chunks, company_id)
 
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
-        embeddings = GoogleGenerativeAIEmbeddings(
+        from app.gemini_http import HTTPGoogleGenerativeAIEmbeddings
+        embeddings = HTTPGoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=config.GEMINI_API_KEY,
             output_dimensionality=768
@@ -697,7 +739,11 @@ async def sync_drive(company: dict = Depends(verify_api_key)):
                 upsert_data.append({
                     "id": f"drive_{i}_{j}",
                     "values": vector,
-                    "metadata": {"text": chunk["text"], "source": chunk["source"]}
+                    "metadata": {
+                        "text": chunk["text"],
+                        "source": chunk["source"],
+                        "encrypted": chunk.get("encrypted", False)
+                    }
                 })
 
             index.upsert(vectors=upsert_data, namespace=namespace)
@@ -787,6 +833,115 @@ async def logout(response: Response):
     response.delete_cookie("neuralos_user_token")
     return {"success": True, "message": "Logged out."}
 
+
+# ============================================
+# CHAT SESSIONS ENDPOINTS
+# ============================================
+
+class CreateSessionRequest(BaseModel):
+    title: str = "New chat"
+
+@app.post("/api/sessions")
+async def create_chat_session(
+    request: CreateSessionRequest,
+    company: dict = Depends(verify_api_key),
+    neuralos_user_token: str = Cookie(None)
+):
+    try:
+        company_id = str(company["_id"])
+        user_id = "default"
+        if neuralos_user_token:
+            payload = decode_jwt_token(neuralos_user_token)
+            if payload:
+                user_id = payload.get("user_id", "default")
+        
+        session_id = create_session(company_id, user_id, request.title)
+        return {"success": True, "session_id": session_id}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/sessions")
+async def list_sessions(
+    company: dict = Depends(verify_api_key),
+    neuralos_user_token: str = Cookie(None)
+):
+    try:
+        company_id = str(company["_id"])
+        user_id = "default"
+        if neuralos_user_token:
+            payload = decode_jwt_token(neuralos_user_token)
+            if payload:
+                user_id = payload.get("user_id", "default")
+        
+        sessions = get_sessions(company_id, user_id)
+        return {"success": True, "sessions": sessions}
+    except Exception as e:
+        return {"success": False, "sessions": [], "message": str(e)}
+
+@app.get("/api/sessions/{session_id}")
+async def get_chat_session(
+    session_id: str,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        session = get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        return {"success": True, "session": session}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+class AppendMessageRequest(BaseModel):
+    session_id: str
+    role: str
+    content: str
+    sources: list = []
+    reasoning: list = []
+
+@app.post("/api/sessions/message")
+async def add_message_to_session(
+    request: AppendMessageRequest,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        append_message(
+            request.session_id,
+            request.role,
+            request.content,
+            request.sources,
+            request.reasoning
+        )
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+class UpdateTitleRequest(BaseModel):
+    session_id: str
+    title: str
+
+@app.patch("/api/sessions/title")
+async def update_title(
+    request: UpdateTitleRequest,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        update_session_title(request.session_id, request.title)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_chat_session(
+    session_id: str,
+    company: dict = Depends(verify_api_key)
+):
+    try:
+        delete_session(session_id)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
 class FeedbackRequest(BaseModel):
     question: str
     answer: str
@@ -855,6 +1010,209 @@ async def run_agent(
             "X-Accel-Buffering": "no"
         }
     )
+
+
+# ============================================
+# MEETING INTELLIGENCE ENDPOINTS
+# ============================================
+
+@app.post("/api/meetings/process")
+async def process_meeting(
+    request: Request,
+    company: dict = Depends(verify_api_key)
+):
+    """
+    Process a meeting transcript and extract structured information.
+    Accepts: {"transcript": "string"} or uploaded file
+    """
+    try:
+        # Check if it's a file upload or JSON body
+        content_type = request.headers.get("content-type", "")
+        
+        if "multipart/form-data" in content_type:
+            # File upload
+            form = await request.form()
+            file = form.get("file")
+            if not file:
+                raise HTTPException(status_code=400, detail="No file provided")
+            
+            transcript = await file.read()
+            transcript = transcript.decode("utf-8", errors="ignore")
+        else:
+            # JSON body
+            body = await request.json()
+            transcript = body.get("transcript", "")
+        
+        if not transcript or len(transcript.strip()) < 50:
+            raise HTTPException(status_code=400, detail="Transcript too short (min 50 characters)")
+        
+        # Size limit: 50KB
+        if len(transcript) > 50000:
+            raise HTTPException(status_code=400, detail="Transcript too large (max 50KB)")
+        
+        print(f"[Meeting] Processing transcript ({len(transcript)} chars)")
+        
+        # Call Gemini with structured prompt using pre-configured llm
+        from app.meeting_prompts import MEETING_EXTRACTION_PROMPT, MEETING_JSON_FIX_PROMPT
+        
+        # First attempt
+        prompt = MEETING_EXTRACTION_PROMPT.replace("{transcript}", transcript)
+        response = llm.invoke(prompt)
+        response_text = response.content.strip()
+        
+        # Try to parse JSON
+        import json
+        import re
+        extracted_data = None
+        
+        print(f"[Meeting] Raw Gemini response (first 200 chars): {response_text[:200]}")
+        print(f"[Meeting] Raw response length: {len(response_text)}")
+        
+        for attempt in range(2):
+            try:
+                # Remove markdown code blocks
+                # Pattern: ```json ... ``` or ``` ... ```
+                code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                if code_block_match:
+                    response_text = code_block_match.group(1)
+                elif response_text.startswith("```"):
+                    # Fallback: just strip backticks
+                    response_text = response_text.strip('`')
+                    if response_text.startswith("json"):
+                        response_text = response_text[4:]
+                    response_text = response_text.strip()
+                
+                # Try to find JSON object if there's extra text
+                if not response_text.startswith("{"):
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        response_text = json_match.group(0)
+                
+                print(f"[Meeting] Cleaned response (first 200 chars): {response_text[:200]}")
+                extracted_data = json.loads(response_text)
+                break
+            except json.JSONDecodeError as e:
+                print(f"[Meeting] JSON parse failed (attempt {attempt + 1}): {e}")
+                print(f"[Meeting] Failed text (first 500 chars): {response_text[:500]}")
+                if attempt == 0:
+                    # Retry with fix-up prompt
+                    fix_response = llm.invoke(
+                        MEETING_JSON_FIX_PROMPT + "\n\nPrevious response:\n" + response_text
+                    )
+                    response_text = fix_response.content.strip()
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to parse JSON. Raw response: {response_text[:200]}"
+                    )
+        
+        # Validate structure
+        if not isinstance(extracted_data, dict):
+            raise HTTPException(status_code=500, detail="Invalid response structure")
+        
+        # Ensure all required keys exist
+        extracted_data.setdefault("metadata", {})
+        extracted_data.setdefault("decisions", [])
+        extracted_data.setdefault("action_items", [])
+        extracted_data.setdefault("open_questions", [])
+        
+        print(f"[Meeting] Extracted: {len(extracted_data.get('decisions', []))} decisions, "
+              f"{len(extracted_data.get('action_items', []))} action items, "
+              f"{len(extracted_data.get('open_questions', []))} questions")
+        
+        return {
+            "success": True,
+            "data": extracted_data,
+            "stats": {
+                "decisions": len(extracted_data.get("decisions", [])),
+                "action_items": len(extracted_data.get("action_items", [])),
+                "open_questions": len(extracted_data.get("open_questions", []))
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Meeting] Error processing transcript: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
+@app.post("/api/meetings/create-tasks")
+async def create_meeting_tasks(
+    request: Request,
+    company: dict = Depends(verify_api_key)
+):
+    """
+    Create Notion tasks from meeting action items.
+    Accepts: {"action_items": [...], "meeting_title": "string", "notion_token": "string or null"}
+    """
+    try:
+        body = await request.json()
+        action_items = body.get("action_items", [])
+        meeting_title = body.get("meeting_title", "Meeting")
+        notion_token = body.get("notion_token")
+        
+        if not action_items:
+            raise HTTPException(status_code=400, detail="No action items provided")
+        
+        company_id = str(company["_id"])
+        
+        print(f"[Meeting] Creating {len(action_items)} tasks from '{meeting_title}'")
+        
+        # Create pending actions in MongoDB
+        from app.database import create_pending_action
+        
+        created_task_ids = []
+        for item in action_items:
+            # Build task title
+            task_name = item.get("task", "Untitled task")
+            assignee = item.get("assignee")
+            due_date = item.get("due_date")
+            
+            if assignee:
+                title = f"{assignee}: {task_name}"
+            else:
+                title = task_name
+            
+            # Build context
+            context = item.get("context", "")
+            if due_date:
+                context += f"\n\nDue: {due_date}"
+            context += f"\n\nSource: {meeting_title}"
+            
+            # Create pending action
+            action_id = create_pending_action(
+                company_id=company_id,
+                action_type="CREATE_TASK",
+                details={
+                    "title": title,
+                    "assignee": assignee,
+                    "notes": context,
+                    "notion_token": notion_token
+                }
+            )
+            
+            created_task_ids.append(action_id)
+        
+        print(f"[Meeting] Created {len(created_task_ids)} pending tasks")
+        
+        return {
+            "success": True,
+            "created_count": len(created_task_ids),
+            "task_ids": created_task_ids,
+            "message": f"Created {len(created_task_ids)} tasks. Approve them in the Workflows tab."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Meeting] Error creating tasks: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
+
 
 @app.get("/api/actions/pending")
 async def list_pending_actions(company: dict = Depends(verify_api_key)):
@@ -1310,6 +1668,198 @@ async def get_dashboard(company: dict = Depends(verify_api_key)):
 
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+@app.post("/api/webhook/slack")
+async def slack_webhook(request: Request):
+    print("=" * 50)
+    print("WEBHOOK HIT! - Slack event received")
+    print("=" * 50)
+    try:
+        body = await request.json()
+        print(f"DEBUG webhook: payload type = {type(body)}")
+        print(f"DEBUG webhook: payload = {body}")
+        
+        # Slack URL verification challenge
+        if body.get("type") == "url_verification":
+            print("DEBUG webhook: URL verification challenge")
+            return {"challenge": body.get("challenge")}
+
+        # When processing a message:
+        if "event" in body:
+            print(f"DEBUG webhook: event type = {body['event'].get('type')}")
+            print(f"DEBUG webhook: channel = {body['event'].get('channel')}")
+            print(f"DEBUG webhook: text = {body['event'].get('text')}")
+        
+        # Handle message events
+        if body.get("type") == "event_callback":
+            event = body.get("event", {})
+            
+            if event.get("type") == "message" and (not event.get("subtype") or event.get("subtype") == "bot_message"):
+                text = event.get("text", "").strip()
+                channel = event.get("channel", "unknown")
+                
+                if not text or len(text) < 10:
+                    return {"ok": True}
+                
+                # Get channel name
+                channel_name = f"channel_{channel}"
+                
+                # Find which company owns this Slack token
+                from app.database import db
+                companies = list(db.companies.find({
+                    "tokens.slack_token": {"$exists": True},
+                    "active": True
+                }))
+                
+                for company in companies:
+                    try:
+                        company_id = str(company["_id"])
+                        namespace = company.get("pinecone_namespace", "default")
+                        slack_token = company.get("tokens", {}).get("slack_token")
+                        
+                        if slack_token:
+                            # Get real channel name
+                            from slack_sdk import WebClient
+                            client = WebClient(token=slack_token)
+                            try:
+                                ch_info = client.conversations_info(channel=channel)
+                                channel_name = ch_info["channel"]["name"]
+                            except:
+                                pass
+                        
+                        # Chunk and index immediately
+                        chunk_text = f"Slack channel: #{channel_name}\n{text}"
+                        
+                        from app.pii_detector import scan_chunks
+                        from app.encryption import encrypt_chunks
+                        
+                        chunks = [{"text": chunk_text, "source": f"Slack: #{channel_name}"}]
+                        chunks, _ = scan_chunks(chunks)
+                        chunks = encrypt_chunks(chunks, company_id)
+                        
+                        vector = embeddings.embed_documents([chunks[0]["text"]])[0]
+                        
+                        import time
+                        from datetime import datetime
+                        print(f"DEBUG webhook upsert: namespace='{namespace}' text='{text[:50]}' realtime=True")
+                        index.upsert(
+                            vectors=[{
+                                "id": f"slack_rt_{channel}_{int(time.time())}",
+                                "values": vector,
+                                "metadata": {
+                                    "text": chunks[0]["text"],
+                                    "source": chunks[0]["source"],
+                                    "encrypted": True,
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "realtime": True
+                                }
+                            }],
+                            namespace=namespace
+                        )
+                        print(f"[Webhook] Indexed real-time Slack message from #{channel_name}")
+                        
+                    except Exception as e:
+                        print(f"[Webhook] Failed to index for company {company_id}: {e}")
+        
+        return {"ok": True}
+        
+    except Exception as e:
+        print(f"[Webhook] Error: {e}")
+        return {"ok": True}
+
+
+def retrieve_context(question: str, namespace: str, company_id: str, top_k: int = 5) -> list:
+    try:
+        from app.rag import rag_enabled, index, embeddings, init_rag
+        from app.encryption import decrypt_chunks
+        
+        if not rag_enabled:
+            init_rag()
+            
+        if not index or not embeddings:
+            return []
+            
+        query_vector = embeddings.embed_query(question)
+        search_response = index.query(
+            vector=query_vector,
+            top_k=top_k,
+            include_metadata=True,
+            namespace=namespace
+        )
+        
+        decrypted = decrypt_chunks(search_response.matches, company_id)
+        return decrypted
+    except Exception as e:
+        print(f"Error retrieving context: {e}")
+        return []
+
+
+@app.post("/api/chat/with-image")
+async def chat_with_image(
+    file: UploadFile = File(...),
+    question: str = Form(""),
+    company: dict = Depends(verify_api_key)
+):
+    """Chat with an uploaded image."""
+    
+    try:
+        # Read image
+        image_bytes = await file.read()
+        
+        # Analyze image
+        from app.multimodal import describe_image, format_for_search
+        
+        image_description = describe_image(image_bytes)
+        image_text = format_for_search(image_description)
+        
+        # If user asked a question, use it. Otherwise, describe the image
+        if not question.strip():
+            question = f"Describe this image and extract key information"
+        
+        # Get context from knowledge base (if there's a question)
+        context_chunks = []
+        if question:
+            company_id = str(company["_id"])
+            namespace = company.get("pinecone_namespace", "")
+            context_chunks = retrieve_context(question, namespace, company_id, top_k=5)
+        
+        # Combine context
+        context = "\n\n".join([c["text"] for c in context_chunks])
+        
+        # Generate answer
+        from app.gemini_http import HTTPChatGoogleGenerativeAI
+        model = HTTPChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            google_api_key=config.GEMINI_API_KEY,
+            temperature=0.2,
+            streaming=False
+        )
+        
+        prompt = f"""
+        User uploaded an image and asked: "{question}"
+        
+        Image analysis: {image_text}
+        
+        Additional context from knowledge base: {context}
+        
+        Answer the user's question based on the image and context.
+        If the image is a chart, include the actual data points in your answer.
+        """
+        
+        response = model.invoke(prompt)
+        answer = response.content
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "image_description": image_description,
+            "sources": [c.get("source", "") for c in context_chunks]
+        }
+    
+    except Exception as e:
+        print(f"[Image Chat] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/health")

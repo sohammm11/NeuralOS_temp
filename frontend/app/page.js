@@ -68,6 +68,22 @@ export default function Home() {
   const [agentInstruction, setAgentInstruction] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentSteps, setAgentSteps] = useState([])
+
+  // Meeting Intelligence state
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingTranscript, setMeetingTranscript] = useState('');
+  const [meetingFile, setMeetingFile] = useState(null);
+  const [meetingProcessing, setMeetingProcessing] = useState(false);
+  const [meetingResults, setMeetingResults] = useState(null);
+  const [selectedActionItems, setSelectedActionItems] = useState(new Set());
+  const [creatingTasks, setCreatingTasks] = useState(false);
+
+  // Chat sessions state
+  const [sessions, setSessions] = useState([])
+  const [currentSessionId, setCurrentSessionId] = useState(null)
+  const [sessionSearch, setSessionSearch] = useState('')
+  const [researchMode, setResearchMode] = useState('quick') // 'quick' | 'deep'
+
   const [pendingActions, setPendingActions] = useState([])
   const [pendingActionsLoading, setPendingActionsLoading] = useState(false)
   const [backendOnline, setBackendOnline] = useState(true)
@@ -91,6 +107,65 @@ export default function Home() {
   const bottomRef = useRef(null)
   const intervalsRef = useRef([])
 
+  const [chatImage, setChatImage] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+
+  async function handleImageUpload(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    setChatImage(file)
+    
+    // Show preview
+    const reader = new FileReader()
+    reader.onload = (e) => setImagePreview(e.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  async function sendWithImage() {
+    if (!question.trim() && !chatImage) return
+    
+    setLoading(true)
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', text: question, image: imagePreview },
+      { role: 'ai', text: '', sources: [] }
+    ])
+    
+    const formData = new FormData()
+    if (chatImage) formData.append('file', chatImage)
+    formData.append('question', question)
+    
+    setQuestion('')
+    setChatImage(null)
+    setImagePreview(null)
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/chat/with-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      })
+      
+      const data = await res.json()
+      
+      setMessages(prev => prev.map((msg, i) =>
+        i === prev.length - 1
+          ? { ...msg, text: data.answer, sources: data.sources || [] }
+          : msg
+      ))
+    } catch (err) {
+      console.error('Image chat error:', err)
+      setMessages(prev => prev.map((msg, i) =>
+        i === prev.length - 1
+          ? { ...msg, text: 'Backend not reachable or error analyzing image.' }
+          : msg
+      ))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     const savedCompany = localStorage.getItem('neuralos_company')
     if (!savedCompany) {
@@ -102,6 +177,7 @@ export default function Home() {
     fetchSyncStatus()
     fetchSchedulerStatus()
     fetchDashboard()
+    fetchSessions()
   }, [])
 
   async function fetchDashboard() {
@@ -200,10 +276,20 @@ export default function Home() {
   }, [messages])
 
   async function askQuestion(q) {
-    setThinkingSteps([])
     const userMessage = q || question
     if (!userMessage.trim()) return
     setQuestion('')
+    setThinkingSteps([])
+
+    // Create session if none exists
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      sessionId = await createNewSession(userMessage)
+    }
+
+    // Save user message to session
+    saveMessageToSession(sessionId, 'user', userMessage)
+
     setMessages(prev => [...prev, { role: 'user', text: userMessage }])
     setLoading(true)
     setMessages(prev => [...prev, { role: 'ai', text: '', sources: [] }])
@@ -221,6 +307,7 @@ export default function Home() {
     const isAction = actionWords.some(w => userMessage.toLowerCase().includes(w))
 
     if (isAction) {
+      let actionText = ''
       try {
         const notionToken = localStorage.getItem('neuralos_notion_token')
         const slackToken = localStorage.getItem('neuralos_slack_token')
@@ -237,26 +324,123 @@ export default function Home() {
           })
         })
         const data = await res.json()
+        actionText = data.message + (data.url ? `\n\n[View in Notion](${data.url})` : '')
         setMessages(prev => prev.map((msg, i) =>
           i === prev.length - 1
             ? {
                 ...msg,
-                text: data.message + (data.url ? `\n\n[View in Notion](${data.url})` : ''),
+                text: actionText,
                 sources: ['Workflow Engine']
               }
             : msg
         ))
       } catch (err) {
+        actionText = 'Failed to execute workflow.'
         setMessages(prev => prev.map((msg, i) =>
           i === prev.length - 1
-            ? { ...msg, text: 'Failed to execute workflow.' }
+            ? { ...msg, text: actionText }
             : msg
         ))
+      }
+      if (sessionId) {
+        saveMessageToSession(sessionId, 'ai', actionText, ['Workflow Engine'], [])
       }
       setLoading(false)
       return
     }
 
+    if (researchMode === 'deep') {
+      let deepText = ''
+      let deepSources = []
+      let currentThinking = []
+      try {
+        const res = await fetchWithRetry('http://localhost:8000/api/research/deep', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question: userMessage
+          })
+        })
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const lines = decoder.decode(value).split('\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.step === 'retrieving' || data.step === 'clustering') {
+                  const stepObj = {
+                    type: 'thinking',
+                    step: data.step,
+                    content: data.status || `Processing ${data.step}...`
+                  }
+                  setThinkingSteps(prev => [...prev, stepObj])
+                  currentThinking.push(stepObj)
+                  setShowThinking(true)
+                } else if (data.step === 'synthesizing') {
+                  const stepObj = {
+                    type: 'thinking',
+                    step: data.section,
+                    content: data.status || `Writing section: ${data.section}`
+                  }
+                  setThinkingSteps(prev => [...prev, stepObj])
+                  currentThinking.push(stepObj)
+                  setShowThinking(true)
+                  if (data.content) {
+                    deepText += `\n\n### ${data.section.toUpperCase()}\n${data.content}`
+                    setMessages(prev => prev.map((msg, i) =>
+                      i === prev.length - 1 ? { ...msg, text: deepText } : msg
+                    ))
+                  }
+                } else if (data.step === 'done') {
+                  deepText = data.answer
+                  deepSources = data.sources || []
+                  setMessages(prev => prev.map((msg, i) =>
+                    i === prev.length - 1 ? { ...msg, text: deepText, sources: deepSources } : msg
+                  ))
+                  setThinkingSteps(prev => [...prev, {
+                    type: 'thinking',
+                    step: 'done',
+                    content: 'Deep research report complete'
+                  }])
+                  currentThinking.push({
+                    type: 'thinking',
+                    step: 'done',
+                    content: 'Deep research report complete'
+                  })
+                }
+              } catch (e) { }
+            }
+          }
+        }
+
+        if (sessionId) {
+          saveMessageToSession(sessionId, 'ai', deepText, deepSources, currentThinking)
+        }
+      } catch (err) {
+        const errText = 'Deep research failed. Make sure the backend server is running.'
+        setMessages(prev => prev.map((msg, i) =>
+          i === prev.length - 1 ? { ...msg, text: errText } : msg
+        ))
+        if (sessionId) {
+          saveMessageToSession(sessionId, 'ai', errText, [], [])
+        }
+      }
+      setLoading(false)
+      return
+    }
+
+    let aiText = ''
+    let aiSources = []
+    let currentThinking = []
     try {
       const res = await fetchWithRetry('http://localhost:8000/api/chat/stream', {
         method: 'POST',
@@ -290,12 +474,15 @@ export default function Home() {
               if (data.type === 'thinking') {
                 console.log('THINKING STEP:', data)
                 setThinkingSteps(prev => [...prev, data])
+                currentThinking.push(data)
                 setShowThinking(true)
               } else if (data.type === 'text') {
+                aiText += data.content
                 setMessages(prev => prev.map((msg, i) =>
                   i === prev.length - 1 ? { ...msg, text: msg.text + data.content } : msg
                 ))
               } else if (data.type === 'sources') {
+                aiSources = data.sources
                 setMessages(prev => prev.map((msg, i) =>
                   i === prev.length - 1 ? { ...msg, sources: data.sources } : msg
                 ))
@@ -304,15 +491,35 @@ export default function Home() {
                   step: 'done',
                   content: 'Answer complete'
                 }])
+                currentThinking.push({
+                  type: 'thinking',
+                  step: 'done',
+                  content: 'Answer complete'
+                })
               }
             } catch (e) { }
           }
         }
       }
+
+      // Save AI response to session on success
+      if (sessionId) {
+        saveMessageToSession(
+          sessionId,
+          'ai', 
+          aiText,
+          aiSources,
+          currentThinking
+        )
+      }
     } catch (err) {
+      const errText = 'Backend not reachable. Make sure the server is running.'
       setMessages(prev => prev.map((msg, i) =>
-        i === prev.length - 1 ? { ...msg, text: 'Backend not reachable. Make sure the server is running.' } : msg
+        i === prev.length - 1 ? { ...msg, text: errText } : msg
       ))
+      if (sessionId) {
+        saveMessageToSession(sessionId, 'ai', errText, [], [])
+      }
     }
     setLoading(false)
   }
@@ -376,6 +583,129 @@ export default function Home() {
         : m
     ))
   }
+
+  // Meeting Intelligence handlers
+  const processMeeting = async () => {
+    if (!meetingTranscript.trim() && !meetingFile) {
+      alert('Please paste a transcript or upload a file');
+      return;
+    }
+    
+    setMeetingProcessing(true);
+    setMeetingResults(null);
+    
+    try {
+      let response;
+      
+      if (meetingFile) {
+        // File upload
+        const formData = new FormData();
+        formData.append('file', meetingFile);
+        
+        response = await fetchWithRetry('http://localhost:8000/api/meetings/process', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+      } else {
+        // Text paste
+        response = await fetchWithRetry('http://localhost:8000/api/meetings/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript: meetingTranscript }),
+          credentials: 'include',
+        });
+      }
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Processing failed');
+      }
+      
+      const result = await response.json();
+      setMeetingResults(result);
+      
+      // Auto-select all action items
+      const allIndices = new Set(
+        result.data.action_items.map((_, idx) => idx)
+      );
+      setSelectedActionItems(allIndices);
+      
+    } catch (error) {
+      console.error('Meeting processing error:', error);
+      alert(`Failed to process meeting: ${error.message}`);
+    } finally {
+      setMeetingProcessing(false);
+    }
+  };
+
+  const toggleActionItem = (index) => {
+    const newSelected = new Set(selectedActionItems);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedActionItems(newSelected);
+  };
+
+  const createMeetingTasks = async () => {
+    if (selectedActionItems.size === 0) {
+      alert('Please select at least one action item');
+      return;
+    }
+    
+    setCreatingTasks(true);
+    
+    try {
+      const selectedItems = Array.from(selectedActionItems).map(idx => 
+        meetingResults.data.action_items[idx]
+      );
+      
+      const response = await fetchWithRetry('http://localhost:8000/api/meetings/create-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action_items: selectedItems,
+          meeting_title: meetingResults.data.metadata?.title || 'Meeting',
+          notion_token: localStorage.getItem('neuralos_notion_token'),
+        }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Task creation failed');
+      }
+      
+      const result = await response.json();
+      alert(`✅ ${result.message}`);
+      
+      // Close modal and reset
+      setShowMeetingModal(false);
+      setMeetingTranscript('');
+      setMeetingFile(null);
+      setMeetingResults(null);
+      setSelectedActionItems(new Set());
+      
+      // Optionally refresh workflows tab
+      // fetchPendingActions();
+      
+    } catch (error) {
+      console.error('Task creation error:', error);
+      alert(`Failed to create tasks: ${error.message}`);
+    } finally {
+      setCreatingTasks(false);
+    }
+  };
+
+  const closeMeetingModal = () => {
+    setShowMeetingModal(false);
+    setMeetingTranscript('');
+    setMeetingFile(null);
+    setMeetingResults(null);
+    setSelectedActionItems(new Set());
+  };
 
   async function runAgent() {
     if (!agentInstruction.trim()) return
@@ -577,6 +907,87 @@ export default function Home() {
     return event.description?.slice(0, 100) || ''
   }
 
+  async function fetchSessions() {
+    try {
+      const res = await fetch('http://localhost:8000/api/sessions', {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      setSessions(data.sessions || [])
+    } catch (err) {}
+  }
+
+  async function createNewSession(firstQuestion = 'New chat') {
+    try {
+      const title = firstQuestion.slice(0, 40) + (firstQuestion.length > 40 ? '...' : '')
+      const res = await fetch('http://localhost:8000/api/sessions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCurrentSessionId(data.session_id)
+        fetchSessions()
+        return data.session_id
+      }
+    } catch (err) {}
+    return null
+  }
+
+  async function saveMessageToSession(sessionId, role, content, sources = [], reasoning = []) {
+    if (!sessionId) return
+    try {
+      await fetch('http://localhost:8000/api/sessions/message', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          role,
+          content,
+          sources,
+          reasoning: reasoning.map(r => r.content || r || '')
+        })
+      })
+    } catch (err) {}
+  }
+
+  async function loadSession(sessionId) {
+    try {
+      const res = await fetch(`http://localhost:8000/api/sessions/${sessionId}`, {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.success && data.session) {
+        const msgs = data.session.messages.map(m => ({
+          role: m.role,
+          text: m.content,
+          sources: m.sources || [],
+        }))
+        setMessages(msgs)
+        setCurrentSessionId(sessionId)
+        setActive('Chat')
+      }
+    } catch (err) {}
+  }
+
+  async function deleteSessionById(sessionId, e) {
+    e.stopPropagation()
+    try {
+      await fetch(`http://localhost:8000/api/sessions/${sessionId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      setSessions(prev => prev.filter(s => s._id !== sessionId))
+      if (currentSessionId === sessionId) {
+        setMessages([])
+        setCurrentSessionId(null)
+      }
+    } catch (err) {}
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -647,7 +1058,16 @@ export default function Home() {
         {/* New chat */}
         <div style={{ padding: `${tokens.space[3]} ${tokens.space[2]}` }}>
           <button
-            onClick={() => setMessages([])}
+            onClick={() => {
+              // Clear current chat
+              setMessages([])
+              setCurrentSessionId(null)
+              setThinkingSteps([])
+              setQuestion('')
+              
+              // Switch to Chat tab if not already there
+              setActive('Chat')
+            }}
             style={{
               ...btn.secondary,
               width: '100%',
@@ -661,6 +1081,98 @@ export default function Home() {
             New chat
           </button>
         </div>
+
+        {/* Recent sessions */}
+        {sessions.length > 0 && (
+          <div style={{ padding: `0 ${tokens.space[2]}`, marginBottom: tokens.space[2] }}>
+            <div style={{
+              fontSize: tokens.font.xs,
+              color: tokens.text.tertiary,
+              padding: `${tokens.space[2]} ${tokens.space[3]}`,
+              fontWeight: tokens.weight.medium,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>Recent</div>
+
+            {/* Search */}
+            <input
+              placeholder="Search chats..."
+              value={sessionSearch}
+              onChange={e => setSessionSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                background: '#0d0f18',
+                border: `0.5px solid ${tokens.border.subtle}`,
+                borderRadius: tokens.radius.md,
+                color: tokens.text.secondary,
+                fontSize: tokens.font.xs,
+                outline: 'none',
+                marginBottom: tokens.space[2],
+                boxSizing: 'border-box',
+              }}
+            />
+
+            {sessions
+              .filter(s => s.title.toLowerCase().includes(sessionSearch.toLowerCase()))
+              .slice(0, 8)
+              .map(session => (
+                <div
+                  key={session._id}
+                  onClick={() => loadSession(session._id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: `${tokens.space[2]} ${tokens.space[3]}`,
+                    borderRadius: tokens.radius.md,
+                    marginBottom: '2px',
+                    cursor: 'pointer',
+                    background: currentSessionId === session._id
+                      ? tokens.bg.overlay : 'transparent',
+                    group: 'true',
+                  }}
+                  onMouseEnter={e => {
+                    if (currentSessionId !== session._id)
+                      e.currentTarget.style.background = tokens.bg.surface
+                  }}
+                  onMouseLeave={e => {
+                    if (currentSessionId !== session._id)
+                      e.currentTarget.style.background = 'transparent'
+                  }}
+                >
+                  <div style={{
+                    fontSize: tokens.font.xs,
+                    color: currentSessionId === session._id
+                      ? tokens.text.primary : tokens.text.tertiary,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}>
+                    {session.title}
+                  </div>
+                  <button
+                    onClick={(e) => deleteSessionById(session._id, e)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: tokens.text.tertiary,
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      padding: '0 2px',
+                      lineHeight: 1,
+                      flexShrink: 0,
+                      opacity: 0.5,
+                      transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => e.target.style.opacity = '1'}
+                    onMouseLeave={e => e.target.style.opacity = '0.5'}
+                  >×</button>
+                </div>
+              ))}
+          </div>
+        )}
 
         {/* Nav */}
         <nav style={{ padding: `0 ${tokens.space[2]}`, flex: 1 }}>
@@ -1586,6 +2098,27 @@ export default function Home() {
                 Give NeuralOS a complex instruction and watch it execute automatically.
               </div>
 
+              {/* Meeting Intelligence Button */}
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  onClick={() => setShowMeetingModal(true)}
+                  style={{
+                    padding: '10px 16px',
+                    background: '#0d0f18',
+                    border: '0.5px solid #7c3aed',
+                    borderRadius: '6px',
+                    color: '#a78bfa',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  📋 Process Meeting Transcript
+                </button>
+              </div>
+
               {/* Instruction input */}
               <div style={{
                 display: 'flex',
@@ -1689,6 +2222,583 @@ export default function Home() {
                       <ReactMarkdown>{step.content}</ReactMarkdown>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Meeting Intelligence Modal */}
+              {showMeetingModal && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0, 0, 0, 0.85)',  // Darker overlay
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1000,
+                  padding: '20px',
+                  backdropFilter: 'blur(4px)',  // Blur background
+                }}>
+                  <div style={{
+                    background: '#0a0c14',
+                    border: '1px solid #2a2f45',  // Stronger border
+                    borderRadius: '12px',  // More rounded
+                    maxWidth: '800px',
+                    width: '100%',
+                    maxHeight: '90vh',
+                    overflow: 'auto',
+                    padding: '32px',  // More padding
+                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',  // Drop shadow
+                  }}>
+                    {/* Modal Header */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '24px',
+                      paddingBottom: '20px',
+                      borderBottom: '1px solid #1e2130',
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: '18px',  // Larger
+                          fontWeight: '600',
+                          color: '#e2e8f0',
+                          marginBottom: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}>
+                          <span style={{ fontSize: '20px' }}>📋</span>
+                          Process Meeting Transcript
+                        </div>
+                        <div style={{
+                          fontSize: '13px',  // Larger
+                          color: '#8b92a8',  // More readable
+                          lineHeight: '1.5',
+                        }}>
+                          Extract decisions, action items, and open questions from any meeting
+                        </div>
+                      </div>
+                      <button
+                        onClick={closeMeetingModal}
+                        style={{
+                          background: '#0d0f18',
+                          border: '1px solid #1e2130',
+                          color: '#8b92a8',
+                          fontSize: '18px',
+                          cursor: 'pointer',
+                          padding: '0',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#1e2130';
+                          e.currentTarget.style.color = '#e2e8f0';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = '#0d0f18';
+                          e.currentTarget.style.color = '#8b92a8';
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Input Section - shown when no results yet */}
+                    {!meetingResults && (
+                      <div>
+                        {/* File Upload */}
+                        <div style={{ marginBottom: '24px' }}>
+                          <label style={{
+                            display: 'block',
+                            fontSize: '13px',  // Larger
+                            fontWeight: '500',
+                            color: '#c4c9d4',  // More readable
+                            marginBottom: '10px',
+                          }}>
+                            Upload transcript file
+                          </label>
+                          <div style={{
+                            padding: '16px',
+                            background: '#0d0f18',
+                            border: '1px dashed #2a2f45',  // Dashed for drag-drop feel
+                            borderRadius: '8px',
+                            textAlign: 'center',
+                          }}>
+                            <input
+                              type="file"
+                              accept=".txt,.md"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setMeetingFile(file);
+                                  setMeetingTranscript('');
+                                }
+                              }}
+                              id="meeting-file-upload"
+                              style={{ display: 'none' }}
+                            />
+                            <label
+                              htmlFor="meeting-file-upload"
+                              style={{
+                                display: 'inline-block',
+                                padding: '8px 16px',
+                                background: '#1e2130',
+                                border: '1px solid #2a2f45',
+                                borderRadius: '6px',
+                                color: '#c4c9d4',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                              }}
+                            >
+                              Choose File
+                            </label>
+                            {meetingFile ? (
+                              <div style={{
+                                marginTop: '12px',
+                                fontSize: '13px',
+                                color: '#10b981',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                              }}>
+                                ✓ {meetingFile.name}
+                              </div>
+                            ) : (
+                              <div style={{
+                                marginTop: '12px',
+                                fontSize: '12px',
+                                color: '#6b7280',
+                              }}>
+                                or drag and drop .txt, .md files
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          margin: '24px 0',
+                          gap: '12px',
+                        }}>
+                          <div style={{ flex: 1, height: '1px', background: '#1e2130' }} />
+                          <div style={{
+                            fontSize: '11px',
+                            color: '#4a5068',
+                            fontWeight: '500',
+                            letterSpacing: '0.5px',
+                          }}>
+                            OR
+                          </div>
+                          <div style={{ flex: 1, height: '1px', background: '#1e2130' }} />
+                        </div>
+
+                        {/* Text Paste */}
+                        <div style={{ marginBottom: '24px' }}>
+                          <label style={{
+                            display: 'block',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            color: '#c4c9d4',
+                            marginBottom: '10px',
+                          }}>
+                            Paste transcript text
+                          </label>
+                          <textarea
+                            value={meetingTranscript}
+                            onChange={(e) => {
+                              setMeetingTranscript(e.target.value);
+                              setMeetingFile(null);
+                            }}
+                            disabled={!!meetingFile}
+                            placeholder="Paste your meeting transcript here...&#10;&#10;Example:&#10;John: We need to launch by Friday&#10;Sarah: I'll handle the marketing&#10;Mike: I'll do the technical setup"
+                            style={{
+                              width: '100%',
+                              minHeight: '220px',
+                              padding: '14px',
+                              background: '#0d0f18',
+                              border: '1px solid #1e2130',
+                              borderRadius: '8px',
+                              color: '#e2e8f0',
+                              fontSize: '13px',
+                              outline: 'none',
+                              fontFamily: 'inherit',
+                              resize: 'vertical',
+                              opacity: meetingFile ? 0.5 : 1,
+                              lineHeight: '1.6',
+                            }}
+                          />
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginTop: '8px',
+                          }}>
+                            <div style={{
+                              fontSize: '12px',
+                              color: meetingTranscript.length > 45000 ? '#f59e0b' : '#6b7280',
+                            }}>
+                              {meetingTranscript.length.toLocaleString()} / 50,000 characters
+                            </div>
+                            {meetingTranscript.length > 0 && (
+                              <button
+                                onClick={() => setMeetingTranscript('')}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#6b7280',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  padding: '2px 6px',
+                                }}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Process Button */}
+                        <button
+                          onClick={processMeeting}
+                          disabled={meetingProcessing || (!meetingTranscript.trim() && !meetingFile)}
+                          style={{
+                            width: '100%',
+                            padding: '14px',
+                            background: meetingProcessing ? '#1e2130' : '#7c3aed',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: meetingProcessing ? '#4a5068' : '#ffffff',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: meetingProcessing ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!meetingProcessing && (meetingTranscript.trim() || meetingFile)) {
+                              e.currentTarget.style.background = '#6d28d9';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!meetingProcessing) {
+                              e.currentTarget.style.background = '#7c3aed';
+                            }
+                          }}
+                        >
+                          {meetingProcessing ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                width: '14px',
+                                height: '14px',
+                                border: '2px solid #4a5068',
+                                borderTopColor: '#a78bfa',
+                                borderRadius: '50%',
+                                animation: 'spin 0.8s linear infinite',
+                              }} />
+                              Processing...
+                            </span>
+                          ) : (
+                            'Extract Information'
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Results Section */}
+                    {meetingResults && (
+                      <div>
+                        {/* Metadata */}
+                        {meetingResults.data.metadata?.title && (
+                          <div style={{
+                            padding: '16px',
+                            background: '#0d0f18',
+                            border: '1px solid #1e2130',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                          }}>
+                            <div style={{
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              color: '#e2e8f0',
+                              marginBottom: '6px',
+                            }}>
+                              {meetingResults.data.metadata.title}
+                            </div>
+                            {meetingResults.data.metadata.date && (
+                              <div style={{ fontSize: '13px', color: '#8b92a8' }}>
+                                📅 {meetingResults.data.metadata.date}
+                              </div>
+                            )}
+                            {meetingResults.data.metadata.attendees?.length > 0 && (
+                              <div style={{ fontSize: '13px', color: '#8b92a8', marginTop: '6px' }}>
+                                👥 {meetingResults.data.metadata.attendees.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div style={{
+                          display: 'flex',
+                          gap: '12px',
+                          marginBottom: '24px',
+                        }}>
+                          <div style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: '#0d0f18',
+                            border: '1px solid #1e2130',
+                            borderRadius: '8px',
+                            textAlign: 'center',
+                          }}>
+                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#7c3aed', lineHeight: '1' }}>
+                              {meetingResults.stats.decisions}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#8b92a8', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              Decisions
+                            </div>
+                          </div>
+                          <div style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: '#0d0f18',
+                            border: '1px solid #1e2130',
+                            borderRadius: '8px',
+                            textAlign: 'center',
+                          }}>
+                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', lineHeight: '1' }}>
+                              {meetingResults.stats.action_items}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#8b92a8', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              Action Items
+                            </div>
+                          </div>
+                          <div style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: '#0d0f18',
+                            border: '1px solid #1e2130',
+                            borderRadius: '8px',
+                            textAlign: 'center',
+                          }}>
+                            <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b', lineHeight: '1' }}>
+                              {meetingResults.stats.open_questions}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#8b92a8', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              Questions
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Decisions */}
+                        {meetingResults.data.decisions.length > 0 && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              color: '#a78bfa',
+                              marginBottom: '10px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}>
+                              ✓ Decisions
+                            </div>
+                            {meetingResults.data.decisions.map((d, i) => (
+                              <div key={i} style={{
+                                padding: '12px 14px',
+                                background: '#0d0f18',
+                                border: '1px solid #1e2130',
+                                borderRadius: '8px',
+                                marginBottom: '8px',
+                                fontSize: '13px',
+                                color: '#c4c9d4',
+                                lineHeight: '1.6',
+                              }}>
+                                <div style={{ color: '#e2e8f0', marginBottom: '4px', fontWeight: '500' }}>
+                                  {d.decision}
+                                </div>
+                                {d.context && (
+                                  <div style={{ fontSize: '12px', color: '#8b92a8', marginTop: '6px' }}>
+                                    {d.context}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Action Items (with checkboxes) */}
+                        {meetingResults.data.action_items.length > 0 && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '10px',
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                color: '#10b981',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                              }}>
+                                ✓ Action Items
+                              </div>
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#8b92a8',
+                              }}>
+                                {selectedActionItems.size} of {meetingResults.data.action_items.length} selected
+                              </div>
+                            </div>
+                            {meetingResults.data.action_items.map((item, i) => (
+                              <div key={i} style={{
+                                padding: '12px 14px',
+                                background: '#0d0f18',
+                                border: `1px solid ${selectedActionItems.has(i) ? '#10b981' : '#1e2130'}`,
+                                borderRadius: '8px',
+                                marginBottom: '8px',
+                                fontSize: '13px',
+                                color: '#c4c9d4',
+                                lineHeight: '1.6',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                              }}
+                              onClick={() => toggleActionItem(i)}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedActionItems.has(i)}
+                                    onChange={() => toggleActionItem(i)}
+                                    style={{ marginTop: '3px', cursor: 'pointer' }}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ color: '#e2e8f0', marginBottom: '6px', fontWeight: '500' }}>
+                                      {item.task}
+                                    </div>
+                                    {(item.assignee || item.due_date) && (
+                                      <div style={{ fontSize: '12px', color: '#8b92a8', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                        {item.assignee && (
+                                          <span>👤 {item.assignee}</span>
+                                        )}
+                                        {item.due_date && (
+                                          <span>📅 {item.due_date}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {item.context && (
+                                      <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px', fontStyle: 'italic' }}>
+                                        {item.context}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Open Questions */}
+                        {meetingResults.data.open_questions.length > 0 && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              color: '#f59e0b',
+                              marginBottom: '10px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}>
+                              ❓ Open Questions
+                            </div>
+                            {meetingResults.data.open_questions.map((q, i) => (
+                              <div key={i} style={{
+                                padding: '12px 14px',
+                                background: '#0d0f18',
+                                border: '1px solid #1e2130',
+                                borderRadius: '8px',
+                                marginBottom: '8px',
+                                fontSize: '13px',
+                                color: '#c4c9d4',
+                                lineHeight: '1.6',
+                              }}>
+                                <div style={{ color: '#e2e8f0', marginBottom: '4px', fontWeight: '500' }}>
+                                  {q.question}
+                                </div>
+                                {q.raised_by && (
+                                  <div style={{ fontSize: '12px', color: '#8b92a8', marginTop: '6px' }}>
+                                    Raised by: {q.raised_by}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div style={{
+                          display: 'flex',
+                          gap: '10px',
+                          marginTop: '24px',
+                          paddingTop: '20px',
+                          borderTop: '1px solid #1e2130',
+                        }}>
+                          <button
+                            onClick={() => {
+                              setMeetingResults(null);
+                              setSelectedActionItems(new Set());
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '12px',
+                              background: '#0d0f18',
+                              border: '1px solid #1e2130',
+                              borderRadius: '8px',
+                              color: '#8b92a8',
+                              fontSize: '13px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Process Another
+                          </button>
+                          <button
+                            onClick={createMeetingTasks}
+                            disabled={creatingTasks || selectedActionItems.size === 0}
+                            style={{
+                              flex: 2,
+                              padding: '12px',
+                              background: (creatingTasks || selectedActionItems.size === 0) ? '#1e2130' : '#7c3aed',
+                              border: 'none',
+                              borderRadius: '8px',
+                              color: (creatingTasks || selectedActionItems.size === 0) ? '#4a5068' : '#ffffff',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              cursor: (creatingTasks || selectedActionItems.size === 0) ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {creatingTasks ? 'Creating...' : `Create ${selectedActionItems.size} Notion Task${selectedActionItems.size !== 1 ? 's' : ''}`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2580,6 +3690,13 @@ export default function Home() {
                       lineHeight: '1.6',
                       color: '#e2e8f0',
                     }}>
+                      {msg.image && (
+                        <img 
+                          src={msg.image} 
+                          alt="User upload"
+                          style={{ maxWidth: '200px', borderRadius: '6px', marginBottom: '8px', display: 'block' }} 
+                        />
+                      )}
                       {msg.text}
                     </div>
                   ) : (
@@ -2879,6 +3996,35 @@ export default function Home() {
           padding: '16px 24px 20px',
           borderTop: '0.5px solid #13151f',
         }}>
+          {/* Image preview */}
+          {imagePreview && (
+              <div style={{ position: 'relative', display: 'inline-block', marginBottom: '8px' }}>
+                  <img 
+                      src={imagePreview} 
+                      alt="Upload preview" 
+                      style={{ maxHeight: '100px', borderRadius: '6px', border: '1px solid #1e2130' }} 
+                  />
+                  <button
+                      onClick={() => {
+                          setChatImage(null);
+                          setImagePreview(null);
+                      }}
+                      style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '-8px',
+                          background: '#0a0c14',
+                          border: '1px solid #1e2130',
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          cursor: 'pointer',
+                          color: '#e2e8f0'
+                      }}
+                  >×</button>
+              </div>
+          )}
+
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -2888,11 +4034,53 @@ export default function Home() {
             borderRadius: '8px',
             padding: '10px 12px',
           }}>
+            <button
+              onClick={() => setResearchMode(prev => prev === 'quick' ? 'deep' : 'quick')}
+              title="Toggle Deep Research Mode"
+              style={{
+                padding: '4px 8px',
+                background: researchMode === 'deep' ? '#7c3aed25' : 'transparent',
+                border: researchMode === 'deep' ? '1px solid #7c3aed' : '0.5px solid #1e2130',
+                borderRadius: '5px',
+                color: researchMode === 'deep' ? '#a78bfa' : '#6b7280',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              🔬 {researchMode === 'deep' ? 'Deep Research ON' : 'Deep Research'}
+            </button>
+
+            {/* Image upload button */}
+            <label style={{
+                padding: '4px 8px',
+                background: 'transparent',
+                border: '0.5px solid #1e2130',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                color: '#6b7280',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+            }}>
+                📎
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                />
+            </label>
+
             <input
               value={question}
               onChange={e => setQuestion(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !loading && askQuestion()}
-              placeholder="Ask anything about your company..."
+              onKeyDown={e => e.key === 'Enter' && !loading && (chatImage ? sendWithImage() : askQuestion())}
+              placeholder={chatImage ? "Ask about this image..." : "Ask anything about your company..."}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -2903,7 +4091,7 @@ export default function Home() {
               }}
             />
             <button
-              onClick={() => askQuestion()}
+              onClick={chatImage ? sendWithImage : askQuestion}
               disabled={loading}
               style={{
                 background: loading ? '#1e2130' : '#7c3aed',

@@ -48,14 +48,4 @@ This document contains structured business context, core problem statements, mil
 
 ---
 
-## 📊 Key Highlights for PPT Slides
 
-| Slide Title | Focus Content |
-| :--- | :--- |
-| **Slide 1: Title** | **NeuralOS**: The Secure Cognitive Intelligence Layer for Enterprise Operations. |
-| **Slide 2: The Chaos** | Fragmented knowledge bases, unnoticed SLA breaches, and security risks in AI pipelines. |
-| **Slide 3: The Architecture** | How data flows from Notion/Slack through PII scanning -> encryption -> Pinecone vector storage -> Gemini response generation. |
-| **Slide 4: Hybrid Precision** | Dual-engine search (Semantic + BM25 keyword matching) and Cohere Reranker for highly accurate answers. |
-| **Slide 5: Zero-Trust Security** | Per-company private keys, regex redaction, and total protection of proprietary intelligence. |
-| **Slide 6: Dynamic Graph** | Visualizing company nodes, owner roles, and project dependencies using D3 force graphs. |
-| **Slide 7: Operations Dashboard** | One-click workflow approvals for Slack broadcasts and Notion ticket creation. |

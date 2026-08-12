@@ -4,8 +4,8 @@
 /frontend/out/
 
 # Python cache and environments
-/backend/__pycache__/
-/backend/*.pyc
+__pycache__/
+*.pyc
 /backend/env/
 /backend/venv/
 
@@ -21,6 +21,7 @@ backend/gmail_token.json
 backend/feedback_store.json
 frontend/.env.local
 *.json.bak
+*.log
 
 # OS files
 .DS_Store

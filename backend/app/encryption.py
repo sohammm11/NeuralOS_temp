@@ -27,7 +27,7 @@ def encrypt_text(text: str, company_id: str) -> str:
         key = get_encryption_key(company_id)
         f = Fernet(key)
         encrypted = f.encrypt(text.encode())
-        return base64.urlsafe_b64encode(encrypted).decode()
+        return encrypted.decode()
     except Exception as e:
         print(f"Encryption failed: {e}")
         return text
@@ -37,8 +37,7 @@ def decrypt_text(encrypted_text: str, company_id: str) -> str:
     try:
         key = get_encryption_key(company_id)
         f = Fernet(key)
-        decoded = base64.urlsafe_b64decode(encrypted_text.encode())
-        decrypted = f.decrypt(decoded)
+        decrypted = f.decrypt(encrypted_text.encode())
         return decrypted.decode()
     except Exception as e:
         print(f"Decryption failed: {e}")
@@ -70,6 +69,8 @@ def decrypt_chunks(matches: list, company_id: str) -> list:
             "text": text,
             "source": match.metadata.get("source", "Unknown"),
             "score": match.score,
-            "encrypted": is_encrypted
+            "encrypted": is_encrypted,
+            "realtime": match.metadata.get("realtime", False),
+            "timestamp": match.metadata.get("timestamp", None)
         })
     return decrypted

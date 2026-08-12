@@ -33,8 +33,8 @@ def get_slack_messages(slack_token: str):
                 content_parts = [f"Slack channel: #{channel_name}\n"]
 
                 for msg in reversed(messages):
-                    # Skip bot messages and system messages
-                    if msg.get("subtype"):
+                    # Skip system messages, but allow bot messages
+                    if msg.get("subtype") and msg.get("subtype") != "bot_message":
                         continue
                     text = msg.get("text", "").strip()
                     if text:

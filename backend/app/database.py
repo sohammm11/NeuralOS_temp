@@ -311,4 +311,60 @@ def resolve_alert(alert_id: str):
     db.alerts.update_one(
         {"_id": ObjectId(alert_id)},
         {"$set": {"resolved": True, "resolved_at": datetime.utcnow()}}
-    )
+    )
+
+# ─── Chat Sessions ───────────────────────────────────────
+
+def create_session(company_id: str, user_id: str, title: str = "New chat"):
+    result = db.chat_sessions.insert_one({
+        "company_id": company_id,
+        "user_id": user_id,
+        "title": title,
+        "messages": [],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+    return str(result.inserted_id)
+
+def get_sessions(company_id: str, user_id: str, limit: int = 20):
+    sessions = list(db.chat_sessions.find(
+        {"company_id": company_id, "user_id": user_id}
+    ).sort("updated_at", -1).limit(limit))
+    for s in sessions:
+        s["_id"] = str(s["_id"])
+    return sessions
+
+def get_session(session_id: str):
+    from bson import ObjectId
+    session = db.chat_sessions.find_one({"_id": ObjectId(session_id)})
+    if session:
+        session["_id"] = str(session["_id"])
+    return session
+
+def append_message(session_id: str, role: str, content: str, 
+                   sources: list = [], reasoning: list = []):
+    from bson import ObjectId
+    db.chat_sessions.update_one(
+        {"_id": ObjectId(session_id)},
+        {
+            "$push": {"messages": {
+                "role": role,
+                "content": content,
+                "sources": sources,
+                "reasoning": reasoning,
+                "timestamp": datetime.utcnow().isoformat()
+            }},
+            "$set": {"updated_at": datetime.utcnow()}
+        }
+    )
+
+def update_session_title(session_id: str, title: str):
+    from bson import ObjectId
+    db.chat_sessions.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$set": {"title": title}}
+    )
+
+def delete_session(session_id: str):
+    from bson import ObjectId
+    db.chat_sessions.delete_one({"_id": ObjectId(session_id)})
